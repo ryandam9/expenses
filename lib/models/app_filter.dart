@@ -1,38 +1,54 @@
 class AppFilter {
   final String? startDate;
   final String? endDate;
+
+  /// Explicit category selection. Only meaningful when [allCategories] is
+  /// false. An empty list with [allCategories] false means "none selected".
   final List<String> categories;
 
-  const AppFilter({this.startDate, this.endDate, this.categories = const []});
+  /// When true, no category filter is applied (every category is included).
+  final bool allCategories;
+
+  const AppFilter({
+    this.startDate,
+    this.endDate,
+    this.categories = const [],
+    this.allCategories = true,
+  });
 
   bool get hasPeriod => startDate != null || endDate != null;
-  bool get hasCategories => categories.isNotEmpty;
+
+  /// A category filter is active whenever we are not showing everything.
+  bool get hasCategoryFilter => !allCategories;
+
+  bool get hasAnyFilter => hasPeriod || hasCategoryFilter;
 
   AppFilter copyWith({
     String? startDate,
     String? endDate,
     List<String>? categories,
-    bool clearCategories = false,
+    bool? allCategories,
   }) {
     return AppFilter(
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
-      categories: clearCategories ? [] : (categories ?? this.categories),
+      categories: categories ?? this.categories,
+      allCategories: allCategories ?? this.allCategories,
     );
   }
 
   AppFilter clearPeriod() => copyWith(startDate: null, endDate: null);
-  AppFilter clearCategories() => copyWith(clearCategories: true);
-  AppFilter clearAll() => const AppFilter();
 
   @override
   bool operator ==(Object other) =>
       other is AppFilter &&
       other.startDate == startDate &&
       other.endDate == endDate &&
+      other.allCategories == allCategories &&
       other.categories.length == categories.length &&
       other.categories.every(categories.contains);
 
   @override
-  int get hashCode => Object.hash(startDate, endDate, Object.hashAll(categories));
+  int get hashCode =>
+      Object.hash(startDate, endDate, allCategories, Object.hashAll(categories));
 }

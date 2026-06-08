@@ -54,11 +54,11 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
       final cats = await _db.getCategoriesForPeriod(filter: f);
       if (!mounted) return;
       setState(() => _categories = cats);
-      final selected = f.categories;
-      if (selected.isNotEmpty) {
-        final pruned = selected.where(cats.contains).toList();
-        if (pruned.length != selected.length) {
-          ref.read(filterProvider.notifier).setCategories(pruned);
+      // Drop any explicit selections that no longer exist in this period.
+      if (!f.allCategories && f.categories.isNotEmpty) {
+        final pruned = f.categories.where(cats.contains).toList();
+        if (pruned.length != f.categories.length) {
+          ref.read(filterProvider.notifier).setCategories(pruned, cats);
         }
       }
     } catch (_) {}
@@ -138,7 +138,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                 const SizedBox(width: 8),
                 Text('Filters', style: theme.textTheme.titleMedium),
                 const Spacer(),
-                if (filter.hasPeriod || filter.hasCategories)
+                if (filter.hasAnyFilter)
                   TextButton(
                     onPressed: () {
                       setState(() => _selMonth = 0);
@@ -193,9 +193,11 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                 Text('Categories', style: theme.textTheme.titleSmall),
                 const Spacer(),
                 Text(
-                  filter.categories.isEmpty
+                  filter.allCategories
                       ? 'All'
-                      : '${filter.categories.length}',
+                      : (filter.categories.isEmpty
+                          ? 'None'
+                          : '${filter.categories.length}'),
                   style: theme.textTheme.labelSmall?.copyWith(
                       fontWeight: FontWeight.w800, color: cs.primary),
                 ),
@@ -290,16 +292,28 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
 
   Widget _buildCategoryList(ThemeData theme, AppFilter filter) {
     final cs = theme.colorScheme;
-    final allSelected = filter.categories.isEmpty;
+    final notifier = ref.read(filterProvider.notifier);
+    final allSelected = filter.allCategories;
+    final noneSelected = !filter.allCategories && filter.categories.isEmpty;
+    // null => indeterminate (a partial selection).
+    final bool? masterValue = allSelected ? true : (noneSelected ? false : null);
+
     return ListView(
       padding: const EdgeInsets.only(bottom: 16),
       children: [
         _categoryTile(
           theme,
           label: 'All categories',
-          selected: allSelected,
+          value: masterValue,
+          tristate: true,
           bold: true,
-          onChanged: () => ref.read(filterProvider.notifier).setCategories([]),
+          onChanged: () {
+            if (allSelected) {
+              notifier.selectNoCategories();
+            } else {
+              notifier.selectAllCategories();
+            }
+          },
         ),
         const Divider(height: 1, indent: 12, endIndent: 12),
         if (_categories.isEmpty)
@@ -312,9 +326,8 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
           ..._categories.map((c) => _categoryTile(
                 theme,
                 label: c.replaceAll('-', ' ').toLowerCase(),
-                selected: filter.categories.contains(c),
-                onChanged: () =>
-                    ref.read(filterProvider.notifier).toggleCategory(c),
+                value: filter.allCategories || filter.categories.contains(c),
+                onChanged: () => notifier.toggleCategory(c, _categories),
               )),
       ],
     );
@@ -323,11 +336,13 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
   Widget _categoryTile(
     ThemeData theme, {
     required String label,
-    required bool selected,
+    required bool? value,
     required VoidCallback onChanged,
+    bool tristate = false,
     bool bold = false,
   }) {
     final cs = theme.colorScheme;
+    final selected = value == true;
     return InkWell(
       onTap: onChanged,
       child: Container(
@@ -338,7 +353,8 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
               width: 22,
               height: 22,
               child: Checkbox(
-                value: selected,
+                value: value,
+                tristate: tristate,
                 visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 onChanged: (_) => onChanged(),

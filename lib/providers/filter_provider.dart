@@ -14,27 +14,48 @@ class FilterNotifier extends Notifier<AppFilter> {
   }
 
   /// Sets the period explicitly, allowing nulls to clear either bound while
-  /// preserving the currently selected categories.
+  /// preserving the current category selection.
   void setRange(String? startDate, String? endDate) {
     state = AppFilter(
       startDate: startDate,
       endDate: endDate,
       categories: state.categories,
+      allCategories: state.allCategories,
     );
   }
 
-  void toggleCategory(String category) {
-    final current = List<String>.from(state.categories);
+  /// Master toggle: select every category (no filter) or select none.
+  void selectAllCategories() =>
+      state = state.copyWith(allCategories: true, categories: []);
+
+  void selectNoCategories() =>
+      state = state.copyWith(allCategories: false, categories: []);
+
+  /// Toggles a single category. [allCats] is the full set of options for the
+  /// current period so the selection can normalise to "all" or "none".
+  void toggleCategory(String category, List<String> allCats) {
+    // Resolve the current explicit selection (when "all", that is everything).
+    final current = state.allCategories
+        ? List<String>.from(allCats)
+        : List<String>.from(state.categories);
     if (current.contains(category)) {
       current.remove(category);
     } else {
       current.add(category);
     }
-    state = state.copyWith(categories: current);
+    _commit(current, allCats);
   }
 
-  void setCategories(List<String> cats) {
-    state = state.copyWith(categories: cats);
+  /// Replaces the explicit selection, normalising the edge cases.
+  void setCategories(List<String> cats, List<String> allCats) =>
+      _commit(cats, allCats);
+
+  void _commit(List<String> selection, List<String> allCats) {
+    if (allCats.isNotEmpty && selection.length >= allCats.length) {
+      state = state.copyWith(allCategories: true, categories: []);
+    } else {
+      state = state.copyWith(allCategories: false, categories: selection);
+    }
   }
 
   String get periodLabel {
@@ -59,10 +80,13 @@ class FilterNotifier extends Notifier<AppFilter> {
   }
 
   String get categoriesLabel {
-    final c = state.categories;
-    if (c.isEmpty) return 'All';
-    if (c.length == 1) return c.first.replaceAll('-', ' ').toLowerCase();
-    return '${c.length} selected';
+    final f = state;
+    if (f.allCategories) return 'All';
+    if (f.categories.isEmpty) return 'None';
+    if (f.categories.length == 1) {
+      return f.categories.first.replaceAll('-', ' ').toLowerCase();
+    }
+    return '${f.categories.length} selected';
   }
 }
 
