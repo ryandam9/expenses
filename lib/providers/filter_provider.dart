@@ -13,6 +13,16 @@ class FilterNotifier extends Notifier<AppFilter> {
     state = state.copyWith(startDate: startDate, endDate: endDate);
   }
 
+  /// Sets the period explicitly, allowing nulls to clear either bound while
+  /// preserving the currently selected categories.
+  void setRange(String? startDate, String? endDate) {
+    state = AppFilter(
+      startDate: startDate,
+      endDate: endDate,
+      categories: state.categories,
+    );
+  }
+
   void toggleCategory(String category) {
     final current = List<String>.from(state.categories);
     if (current.contains(category)) {

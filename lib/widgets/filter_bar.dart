@@ -16,6 +16,10 @@ class _FilterBarState extends ConsumerState<FilterBar> {
 
   List<String> _categories = [];
   List<String> _years = [];
+
+  String _mode = 'monthly'; // 'monthly' | 'custom'
+  String? _selYear;
+  int _selMonth = 0; // 0 = whole year
   bool _catExpanded = false;
 
   static const _monthNames = [
@@ -37,145 +41,64 @@ class _FilterBarState extends ConsumerState<FilterBar> {
         setState(() {
           _categories = cats;
           _years = years;
+          _selYear = years.isNotEmpty ? years.first : null;
         });
       }
     } catch (_) {}
   }
 
-  Future<void> _pickMonth(BuildContext context) async {
-    if (_years.isEmpty) return;
-    String selectedYear = _years.first;
+  String _lastDay(int year, int month) =>
+      DateTime(year, month + 1, 0).day.toString().padLeft(2, '0');
 
-    final result = await showDialog<({String year, int month})>(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setLocal) {
-            final theme = Theme.of(ctx);
-            return AlertDialog(
-              icon: const Icon(Icons.calendar_month),
-              title: const Text('Select Month'),
-              content: SizedBox(
-                width: 320,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DropdownMenu<String>(
-                      initialSelection: selectedYear,
-                      expandedInsets: EdgeInsets.zero,
-                      label: const Text('Year'),
-                      dropdownMenuEntries: _years
-                          .map((y) => DropdownMenuEntry(value: y, label: y))
-                          .toList(),
-                      onSelected: (v) {
-                        if (v != null) setLocal(() => selectedYear = v);
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.count(
-                      crossAxisCount: 4,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 8,
-                      crossAxisSpacing: 8,
-                      childAspectRatio: 2.0,
-                      children: List.generate(12, (i) {
-                        return OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            side: BorderSide(
-                                color: theme.colorScheme.primary, width: 1.5),
-                            shape: const RoundedRectangleBorder(
-                                borderRadius: BorderRadius.zero),
-                          ),
-                          onPressed: () => Navigator.pop(
-                              ctx, (year: selectedYear, month: i + 1)),
-                          child: Text(
-                            _monthNames[i],
-                            style: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.w700),
-                          ),
-                        );
-                      }),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (result != null) {
-      final mm = result.month.toString().padLeft(2, '0');
-      final lastDay = DateTime(int.parse(result.year), result.month + 1, 0).day;
-      final start = '${result.year}-$mm-01';
-      final end = '${result.year}-$mm-${lastDay.toString().padLeft(2, '0')}';
-      ref.read(filterProvider.notifier).setPeriod(startDate: start, endDate: end);
+  void _applyMonthly() {
+    final year = _selYear;
+    if (year == null) return;
+    final notifier = ref.read(filterProvider.notifier);
+    if (_selMonth == 0) {
+      notifier.setRange('$year-01-01', '$year-12-31');
+    } else {
+      final mm = _selMonth.toString().padLeft(2, '0');
+      notifier.setRange(
+          '$year-$mm-01', '$year-$mm-${_lastDay(int.parse(year), _selMonth)}');
     }
   }
 
-  Future<void> _pickDate(BuildContext context, bool isStart) async {
+  Future<void> _pickRange(BuildContext context) async {
     final filter = ref.read(filterProvider);
-    final currentDate = isStart ? filter.startDate : filter.endDate;
-    
-    DateTime initial = DateTime.now();
-    if (currentDate != null) {
-      final parts = currentDate.split('-');
-      if (parts.length == 3) {
-        initial = DateTime(
-          int.tryParse(parts[0]) ?? DateTime.now().year,
-          int.tryParse(parts[1]) ?? 1,
-          int.tryParse(parts[2]) ?? 1,
-        );
-      }
+    DateTimeRange? initial;
+    final s = _parse(filter.startDate);
+    final e = _parse(filter.endDate);
+    if (s != null && e != null && !e.isBefore(s)) {
+      initial = DateTimeRange(start: s, end: e);
     }
 
-    final picked = await showDatePicker(
+    final picked = await showDateRangePicker(
       context: context,
-      initialDate: initial,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
-      helpText: isStart ? 'Select Start Date' : 'Select End Date',
-      cancelText: 'Cancel',
-      confirmText: 'Select',
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            datePickerTheme: DatePickerThemeData(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              headerBackgroundColor: Theme.of(context).colorScheme.primary,
-              headerForegroundColor: Theme.of(context).colorScheme.onPrimary,
-            ),
-          ),
-          child: child!,
-        );
-      },
+      initialDateRange: initial,
+      helpText: 'Select date range',
+      saveText: 'Apply',
     );
-    
+
     if (picked != null) {
-      final formatted = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-      final notifier = ref.read(filterProvider.notifier);
-      if (isStart) {
-        notifier.setPeriod(startDate: formatted, endDate: filter.endDate);
-      } else {
-        notifier.setPeriod(startDate: filter.startDate, endDate: formatted);
-      }
+      ref.read(filterProvider.notifier).setRange(_fmt(picked.start), _fmt(picked.end));
     }
   }
 
+  DateTime? _parse(String? d) {
+    if (d == null || d.isEmpty) return null;
+    return DateTime.tryParse(d);
+  }
+
+  String _fmt(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   void _clear() {
-    setState(() => _catExpanded = false);
+    setState(() {
+      _catExpanded = false;
+      _selMonth = 0;
+    });
     ref.read(filterProvider.notifier).clearAll();
   }
 
@@ -189,56 +112,161 @@ class _FilterBarState extends ConsumerState<FilterBar> {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         border: Border(
-          bottom: BorderSide(color: theme.dividerColor, width: 1),
+          bottom: BorderSide(color: theme.colorScheme.outline, width: 2),
         ),
       ),
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              _MonthButton(onTap: () => _pickMonth(context)),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _DateButton(
-                  label: 'Start',
-                  date: filter.startDate,
-                  onPickDate: () => _pickDate(context, true),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(
+                    value: 'monthly',
+                    label: Text('Monthly'),
+                    icon: Icon(Icons.calendar_view_month, size: 16),
+                  ),
+                  ButtonSegment(
+                    value: 'custom',
+                    label: Text('Custom'),
+                    icon: Icon(Icons.date_range, size: 16),
+                  ),
+                ],
+                selected: {_mode},
+                showSelectedIcon: false,
+                onSelectionChanged: (s) => setState(() => _mode = s.first),
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  textStyle: WidgetStateProperty.all(
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 6),
-                child: Text('-', style: TextStyle(fontSize: 18)),
-              ),
-              Expanded(
-                child: _DateButton(
-                  label: 'End',
-                  date: filter.endDate,
-                  onPickDate: () => _pickDate(context, false),
-                ),
-              ),
-              const SizedBox(width: 8),
+              const Spacer(),
               _buildCategoryChip(theme, filter),
               if (hasFilter) ...[
                 const SizedBox(width: 4),
-                IconButton(
+                IconButton.filledTonal(
                   onPressed: _clear,
                   icon: const Icon(Icons.filter_alt_off, size: 18),
                   tooltip: 'Clear filters',
                   style: IconButton.styleFrom(
-                    padding: const EdgeInsets.all(6),
-                    minimumSize: const Size(32, 32),
+                    padding: const EdgeInsets.all(8),
+                    minimumSize: const Size(36, 36),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
               ],
             ],
           ),
+          const SizedBox(height: 10),
+          if (_mode == 'monthly')
+            _buildMonthlyControls(theme)
+          else
+            _buildCustomControls(theme, filter),
           if (_catExpanded) _buildCategoryPanel(theme, filter),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMonthlyControls(ThemeData theme) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: DropdownMenu<String>(
+            initialSelection: _selYear,
+            enableSearch: false,
+            expandedInsets: EdgeInsets.zero,
+            label: const Text('Year'),
+            leadingIcon: const Icon(Icons.event, size: 18),
+            dropdownMenuEntries:
+                _years.map((y) => DropdownMenuEntry(value: y, label: y)).toList(),
+            onSelected: (v) {
+              if (v != null) {
+                setState(() => _selYear = v);
+                _applyMonthly();
+              }
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          flex: 3,
+          child: DropdownMenu<int>(
+            initialSelection: _selMonth,
+            enableSearch: false,
+            expandedInsets: EdgeInsets.zero,
+            label: const Text('Month'),
+            leadingIcon: const Icon(Icons.calendar_month, size: 18),
+            dropdownMenuEntries: [
+              const DropdownMenuEntry(value: 0, label: 'Whole year'),
+              for (var m = 1; m <= 12; m++)
+                DropdownMenuEntry(value: m, label: _monthNames[m - 1]),
+            ],
+            onSelected: (v) {
+              if (v != null) {
+                setState(() => _selMonth = v);
+                _applyMonthly();
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCustomControls(ThemeData theme, AppFilter filter) {
+    final hasRange = filter.hasPeriod;
+    String label = 'Select date range';
+    if (hasRange) {
+      final s = filter.startDate ?? '…';
+      final e = filter.endDate ?? '…';
+      label = '$s  →  $e';
+    }
+    return InkWell(
+      onTap: () => _pickRange(context),
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.colorScheme.primary, width: 2),
+          borderRadius: BorderRadius.circular(4),
+          color: hasRange ? theme.colorScheme.primaryContainer : null,
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.date_range,
+                size: 18,
+                color: hasRange
+                    ? theme.colorScheme.onPrimaryContainer
+                    : theme.colorScheme.onSurface),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: hasRange
+                      ? theme.colorScheme.onPrimaryContainer
+                      : theme.colorScheme.onSurface,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Icon(Icons.edit_calendar,
+                size: 18,
+                color: hasRange
+                    ? theme.colorScheme.onPrimaryContainer
+                    : theme.colorScheme.onSurfaceVariant),
+          ],
+        ),
       ),
     );
   }
@@ -250,32 +278,29 @@ class _FilterBarState extends ConsumerState<FilterBar> {
       onTap: () => setState(() => _catExpanded = !_catExpanded),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           border: Border.all(color: theme.colorScheme.primary, width: 2),
           color: filter.hasCategories
               ? theme.colorScheme.primary
               : Colors.transparent,
-          borderRadius: _catExpanded ? const BorderRadius.vertical(top: Radius.circular(4)) : null,
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Badge(
-              isLabelVisible: filter.hasCategories,
-              child: Icon(
-                Icons.category,
-                size: 14,
-                color: filter.hasCategories
-                    ? theme.colorScheme.onPrimary
-                    : theme.colorScheme.onSurface,
-              ),
+            Icon(
+              Icons.category,
+              size: 16,
+              color: filter.hasCategories
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onSurface,
             ),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: filter.hasCategories
                     ? theme.colorScheme.onPrimary
@@ -285,7 +310,7 @@ class _FilterBarState extends ConsumerState<FilterBar> {
             const SizedBox(width: 4),
             Icon(
               _catExpanded ? Icons.expand_less : Icons.expand_more,
-              size: 16,
+              size: 18,
               color: filter.hasCategories
                   ? theme.colorScheme.onPrimary
                   : theme.colorScheme.onSurface,
@@ -297,186 +322,62 @@ class _FilterBarState extends ConsumerState<FilterBar> {
   }
 
   Widget _buildCategoryPanel(ThemeData theme, AppFilter filter) {
-    return Card.outlined(
-      margin: const EdgeInsets.only(top: 2),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(4)),
-        side: BorderSide(width: 2),
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.colorScheme.primary, width: 2),
+        borderRadius: BorderRadius.circular(4),
+        color: theme.colorScheme.surfaceContainerLow,
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.filter_list, size: 16, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Text('Select Categories', style: theme.textTheme.labelLarge),
-                const Spacer(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.filter_list, size: 16, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Text('Select Categories', style: theme.textTheme.labelLarge),
+              const Spacer(),
+              if (filter.hasCategories)
                 TextButton.icon(
-                  onPressed: () {
-                    ref.read(filterProvider.notifier).setCategories([]);
-                  },
-                  icon: const Icon(Icons.clear_all, size: 14),
-                  label: const Text('Clear', style: TextStyle(fontSize: 11)),
+                  onPressed: () => ref.read(filterProvider.notifier).setCategories([]),
+                  icon: const Icon(Icons.clear_all, size: 16),
+                  label: const Text('Clear', style: TextStyle(fontSize: 12)),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: _categories.map((c) {
-                final selected = filter.categories.contains(c);
-                return AnimatedScale(
-                  duration: const Duration(milliseconds: 150),
-                  scale: selected ? 1.05 : 1.0,
-                  child: FilterChip(
-                    avatar: selected
-                        ? Icon(Icons.check, size: 14, color: theme.colorScheme.onPrimary)
-                        : null,
-                    label: Text(
-                      c.replaceAll('-', ' ').toLowerCase(),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                        color: selected
-                            ? theme.colorScheme.onPrimary
-                            : theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    selected: selected,
-                    onSelected: (_) {
-                      ref.read(filterProvider.notifier).toggleCategory(c);
-                    },
-                    selectedColor: theme.colorScheme.primary,
-                    checkmarkColor: theme.colorScheme.onPrimary,
-                    side: BorderSide(color: theme.colorScheme.primary, width: 1.5),
-                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: _categories.map((c) {
+              final selected = filter.categories.contains(c);
+              return FilterChip(
+                showCheckmark: true,
+                label: Text(
+                  c.replaceAll('-', ' ').toLowerCase(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected
+                        ? theme.colorScheme.onPrimary
+                        : theme.colorScheme.onSurface,
                   ),
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MonthButton extends StatelessWidget {
-  final VoidCallback onTap;
-
-  const _MonthButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.primary, width: 2),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.calendar_month, size: 14, color: theme.colorScheme.onSurface),
-            const SizedBox(width: 6),
-            Text(
-              'Month',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DateButton extends StatelessWidget {
-  final String label;
-  final String? date;
-  final VoidCallback onPickDate;
-
-  const _DateButton({
-    required this.label,
-    required this.date,
-    required this.onPickDate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final hasDate = date != null && date!.isNotEmpty;
-    
-    return InkWell(
-      onTap: onPickDate,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.outline, width: 1.5),
-          borderRadius: BorderRadius.circular(4),
-          color: hasDate ? theme.colorScheme.primaryContainer : null,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.calendar_today,
-              size: 16,
-              color: hasDate 
-                  ? theme.colorScheme.onPrimaryContainer 
-                  : theme.colorScheme.onSurfaceVariant,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: hasDate 
-                          ? theme.colorScheme.onPrimaryContainer 
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Text(
-                    hasDate ? date! : 'Select',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: hasDate 
-                          ? theme.colorScheme.onPrimaryContainer 
-                          : theme.colorScheme.onSurface,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right,
-              size: 18,
-              color: hasDate 
-                  ? theme.colorScheme.onPrimaryContainer 
-                  : theme.colorScheme.onSurfaceVariant,
-            ),
-          ],
-        ),
+                ),
+                selected: selected,
+                onSelected: (_) =>
+                    ref.read(filterProvider.notifier).toggleCategory(c),
+                selectedColor: theme.colorScheme.primary,
+                checkmarkColor: theme.colorScheme.onPrimary,
+                side: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }
