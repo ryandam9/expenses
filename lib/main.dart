@@ -1,87 +1,73 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'screens/main_shell.dart';
 import 'theme/app_themes.dart';
+import 'services/database_service.dart';
 import 'providers/theme_provider.dart';
 import 'providers/font_provider.dart';
+import 'providers/prefs_provider.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   if (!kIsWeb) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: ExpensesApp()));
+  final prefs = await SharedPreferences.getInstance();
+  // Apply the saved data-source path before the first query runs.
+  final savedPath = prefs.getString('dbPath');
+  if (savedPath != null && savedPath.isNotEmpty) {
+    DatabaseService.overridePath = savedPath;
+  }
+  runApp(
+    ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: const ExpensesApp(),
+    ),
+  );
 }
 
 class ExpensesApp extends ConsumerWidget {
   const ExpensesApp({super.key});
 
-  TextTheme _applyFont(TextTheme base, String? fontFamily, double scale) {
-    return TextTheme(
-      displayLarge: base.displayLarge?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.displayLarge?.fontSize ?? 57) * scale,
-      ),
-      displayMedium: base.displayMedium?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.displayMedium?.fontSize ?? 45) * scale,
-      ),
-      displaySmall: base.displaySmall?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.displaySmall?.fontSize ?? 36) * scale,
-      ),
-      headlineLarge: base.headlineLarge?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.headlineLarge?.fontSize ?? 32) * scale,
-      ),
-      headlineMedium: base.headlineMedium?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.headlineMedium?.fontSize ?? 28) * scale,
-      ),
-      headlineSmall: base.headlineSmall?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.headlineSmall?.fontSize ?? 24) * scale,
-      ),
-      titleLarge: base.titleLarge?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.titleLarge?.fontSize ?? 22) * scale,
-      ),
-      titleMedium: base.titleMedium?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.titleMedium?.fontSize ?? 16) * scale,
-      ),
-      titleSmall: base.titleSmall?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.titleSmall?.fontSize ?? 14) * scale,
-      ),
-      bodyLarge: base.bodyLarge?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.bodyLarge?.fontSize ?? 16) * scale,
-      ),
-      bodyMedium: base.bodyMedium?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.bodyMedium?.fontSize ?? 14) * scale,
-      ),
-      bodySmall: base.bodySmall?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.bodySmall?.fontSize ?? 12) * scale,
-      ),
-      labelLarge: base.labelLarge?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.labelLarge?.fontSize ?? 14) * scale,
-      ),
-      labelMedium: base.labelMedium?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.labelMedium?.fontSize ?? 12) * scale,
-      ),
-      labelSmall: base.labelSmall?.copyWith(
-        fontFamily: fontFamily,
-        fontSize: (base.labelSmall?.fontSize ?? 11) * scale,
-      ),
+  // Scales every text style by [scale] while leaving the font family alone.
+  TextTheme _scale(TextTheme base, double scale) {
+    TextStyle? s(TextStyle? st, double fallback) =>
+        st?.copyWith(fontSize: (st.fontSize ?? fallback) * scale);
+    return base.copyWith(
+      displayLarge: s(base.displayLarge, 57),
+      displayMedium: s(base.displayMedium, 45),
+      displaySmall: s(base.displaySmall, 36),
+      headlineLarge: s(base.headlineLarge, 32),
+      headlineMedium: s(base.headlineMedium, 28),
+      headlineSmall: s(base.headlineSmall, 24),
+      titleLarge: s(base.titleLarge, 22),
+      titleMedium: s(base.titleMedium, 16),
+      titleSmall: s(base.titleSmall, 14),
+      bodyLarge: s(base.bodyLarge, 16),
+      bodyMedium: s(base.bodyMedium, 14),
+      bodySmall: s(base.bodySmall, 12),
+      labelLarge: s(base.labelLarge, 14),
+      labelMedium: s(base.labelMedium, 12),
+      labelSmall: s(base.labelSmall, 11),
     );
+  }
+
+  // Applies the chosen Google Font (loaded on demand) to a scaled text theme.
+  // 'System Default' keeps the platform font; an unknown family falls back to
+  // it rather than throwing.
+  TextTheme _applyFont(TextTheme base, String font, double scale) {
+    final scaled = _scale(base, scale);
+    if (font == 'System Default') return scaled;
+    try {
+      return GoogleFonts.getTextTheme(font, scaled);
+    } catch (_) {
+      return scaled;
+    }
   }
 
   @override
@@ -92,7 +78,6 @@ class ExpensesApp extends ConsumerWidget {
     final fontSize = ref.watch(fontSizeProvider);
     final t = appThemes[themeIndex];
 
-    final fontFamily = font == 'System Default' ? null : font;
     final scale = fontSize / 13.0;
 
     final light = t.themeData(Brightness.light);
@@ -102,10 +87,10 @@ class ExpensesApp extends ConsumerWidget {
       title: 'Expenses Dashboard',
       debugShowCheckedModeBanner: false,
       theme: light.copyWith(
-        textTheme: _applyFont(light.textTheme, fontFamily, scale),
+        textTheme: _applyFont(light.textTheme, font, scale),
       ),
       darkTheme: dark.copyWith(
-        textTheme: _applyFont(dark.textTheme, fontFamily, scale),
+        textTheme: _applyFont(dark.textTheme, font, scale),
       ),
       themeMode: themeMode,
       home: const MainShell(),

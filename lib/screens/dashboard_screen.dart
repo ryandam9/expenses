@@ -1,13 +1,20 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import '../services/database_service.dart';
+import '../services/query_builder.dart';
 import '../providers/filter_provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/prefs_provider.dart';
 import '../theme/app_themes.dart';
 import '../models/expense.dart';
 import '../widgets/filter_bar.dart';
+import '../widgets/db_path_dialog.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -40,6 +47,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   String _sortKey = 'date';
   bool _sortAsc = false;
 
+  // Current per-column widths, seeded from the defaults in [_columns] (or the
+  // last saved widths). Drag the grips in the header to resize; double-tap a
+  // grip to restore the default.
+  late List<double> _colWidths;
+
+  Timer? _searchDebounce;
+
   /// Chart colours drawn from the active theme's feather palette, so the
   /// visualisations share the rest of the app's colour identity instead of a
   /// generic, off-theme set.
@@ -52,11 +66,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _colWidths = [for (final c in _columns) c.$2];
+    final saved = ref.read(sharedPreferencesProvider).getString('colWidths');
+    if (saved != null) {
+      final parts =
+          saved.split(',').map(double.tryParse).whereType<double>().toList();
+      if (parts.length == _columns.length) _colWidths = parts;
+    }
     _loadData();
+  }
+
+  void _saveColWidths() {
+    ref
+        .read(sharedPreferencesProvider)
+        .setString('colWidths', _colWidths.join(','));
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _vScroll.dispose();
     _hScroll.dispose();
     _searchCtrl.dispose();
@@ -115,6 +143,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     // Reload whenever the filter changes — the sidebar stays mounted so the
     // category checklist never collapses while doing so.
     ref.listen(filterProvider, (_, __) => _loadData());
+    // Reload when the data source changes.
+    ref.listen(dataReloadProvider, (_, __) => _loadData());
 
     return Scaffold(
       appBar: AppBar(
@@ -144,6 +174,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.download_rounded),
+            tooltip: _section == 'overview'
+                ? 'Export category summary (CSV)'
+                : 'Export transactions (CSV)',
+            onPressed: _loadedOnce && _error == null ? _exportCsv : null,
+          ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Row(
@@ -154,6 +192,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  // Writes the current view to a timestamped CSV next to the database file
+  // (or the system temp dir) and reports the location.
+  Future<void> _exportCsv() async {
+    try {
+      final overview = _section == 'overview';
+      final content = overview
+          ? categorySummaryToCsv(_categorySpend)
+          : transactionsToCsv(_sortList(_filtered));
+      final ts = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final base = overview ? 'category_summary' : 'transactions';
+      var targetDir = p.dirname(DatabaseService().currentPath);
+      if (!Directory(targetDir).existsSync()) {
+        targetDir = Directory.systemTemp.path;
+      }
+      final file = File(p.join(targetDir, 'expenses_${base}_$ts.csv'));
+      await file.writeAsString(content);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Exported to ${file.path}'),
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'Copy path',
+            onPressed: () =>
+                Clipboard.setData(ClipboardData(text: file.path)),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Export failed: $e')));
+    }
   }
 
   Widget _buildContent(ThemeData theme) {
@@ -203,29 +276,55 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _buildKpiHeader(ThemeData theme) {
     final net = _totalCredits - _totalDebits;
     final fmt = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
-    return Container(
+    final green = Colors.green.shade600;
+
+    final debits = _transactions.where((e) => e.debit > 0);
+    final debitCount = debits.length;
+    final avgExpense = debitCount == 0 ? 0.0 : _totalDebits / debitCount;
+    final largest =
+        debits.fold<double>(0, (m, e) => e.debit > m ? e.debit : m);
+    final savingsRate =
+        _totalCredits > 0 ? (net / _totalCredits * 100) : 0.0;
+
+    final tiles = <Widget Function(double)>[
+      (w) => _kpi(theme, w, 'Expenses', fmt.format(_totalDebits),
+          Icons.south_west, theme.colorScheme.error),
+      (w) => _kpi(theme, w, 'Income', fmt.format(_totalCredits),
+          Icons.north_east, green),
+      (w) => _kpi(theme, w, 'Net', fmt.format(net),
+          Icons.account_balance_wallet, net >= 0 ? green : theme.colorScheme.error),
+      (w) => _kpi(theme, w, 'Transactions',
+          NumberFormat.decimalPattern().format(_txCount),
+          Icons.receipt_long, theme.colorScheme.primary),
+      (w) => _kpi(theme, w, 'Avg expense', fmt.format(avgExpense),
+          Icons.calculate_outlined, theme.colorScheme.tertiary),
+      (w) => _kpi(theme, w, 'Largest', fmt.format(largest),
+          Icons.trending_up, theme.colorScheme.error),
+      (w) => _kpi(theme, w, 'Savings rate', '${savingsRate.toStringAsFixed(0)}%',
+          Icons.savings_outlined, savingsRate >= 0 ? green : theme.colorScheme.error),
+    ];
+
+    return Padding(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      color: Colors.transparent,
-      child: Row(
-        children: [
-          _kpi(theme, 'Expenses', fmt.format(_totalDebits),
-              Icons.south_west, theme.colorScheme.error),
-          const SizedBox(width: 12),
-          _kpi(theme, 'Income', fmt.format(_totalCredits),
-              Icons.north_east, Colors.green.shade600),
-          const SizedBox(width: 12),
-          _kpi(theme, 'Net', fmt.format(net), Icons.account_balance_wallet,
-              net >= 0 ? Colors.green.shade600 : theme.colorScheme.error),
-          const SizedBox(width: 12),
-          _kpi(theme, 'Transactions', NumberFormat.decimalPattern().format(_txCount),
-              Icons.receipt_long, theme.colorScheme.primary),
-        ],
+      child: LayoutBuilder(
+        builder: (context, c) {
+          const gap = 12.0;
+          final cols = (c.maxWidth / 210).floor().clamp(2, tiles.length);
+          final w = (c.maxWidth - (cols - 1) * gap) / cols;
+          return Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: [for (final t in tiles) t(w)],
+          );
+        },
       ),
     );
   }
 
-  Widget _kpi(ThemeData theme, String label, String value, IconData icon, Color color) {
-    return Expanded(
+  Widget _kpi(ThemeData theme, double width, String label, String value,
+      IconData icon, Color color) {
+    return SizedBox(
+      width: width,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
@@ -328,7 +427,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 18, 16, 8),
       decoration: _cardDecoration(theme),
-      child: SizedBox(
+      child: Semantics(
+        label: 'Bar chart of total spending by category',
+        child: SizedBox(
         height: 300,
         child: LayoutBuilder(
           builder: (context, c) {
@@ -442,6 +543,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           },
         ),
       ),
+      ),
     );
   }
 
@@ -535,7 +637,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 18),
-          SizedBox(
+          Semantics(
+            label: 'Line chart of spending over time, total '
+                '${_money(totalSpend)}',
+            child: SizedBox(
             height: 240,
             child: LineChart(
               LineChartData(
@@ -637,6 +742,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ),
           ),
+          ),
         ],
       ),
     );
@@ -651,7 +757,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final total = entries.fold<double>(0, (s, e) => s + e.value);
     final colors = _categoryColors(entries.length);
 
-    final donut = SizedBox(
+    final donut = Semantics(
+      label: 'Donut chart of category share, total ${_money(total)}',
+      child: SizedBox(
       width: 220,
       height: 220,
       child: Stack(
@@ -707,6 +815,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ],
           ),
         ],
+      ),
       ),
     );
 
@@ -837,10 +946,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
               isDense: true,
             ),
-            onChanged: (v) => setState(() {
-              _query = v;
-              _page = 0;
-            }),
+            onChanged: (v) {
+              _searchDebounce?.cancel();
+              _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+                if (!mounted) return;
+                setState(() {
+                  _query = v;
+                  _page = 0;
+                });
+              });
+            },
           ),
         ),
         Expanded(child: _buildTable(theme, pageItems, startIndex)),
@@ -862,8 +977,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // Horizontal gap rendered after each cell so columns don't touch.
   static const _cellGap = 18.0;
 
+  static const _minColWidth = 48.0;
+  static const _maxColWidth = 640.0;
+
   double get _tableWidth =>
-      _columns.fold(0.0, (s, c) => s + c.$2 + _cellGap) + 32;
+      _colWidths.fold(0.0, (s, w) => s + w + _cellGap) + 32;
+
+  void _resizeColumn(int i, double dx) {
+    setState(() {
+      _colWidths[i] =
+          (_colWidths[i] + dx).clamp(_minColWidth, _maxColWidth);
+    });
+    _saveColWidths();
+  }
 
   List<Expense> _sortList(List<Expense> list) {
     final sorted = List<Expense>.from(list);
@@ -953,51 +1079,86 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(color: theme.colorScheme.primary),
       child: Row(
-        children: _columns.map((c) {
-          final key = c.$4;
-          final active = key != null && key == _sortKey;
-          final isRight = c.$3 == TextAlign.right;
-          final label = Text(
-            c.$1,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 11,
-              letterSpacing: 0.5,
-              color: active ? onPrimary : onPrimary.withValues(alpha: 0.85),
-            ),
-          );
-          final content = Row(
-            mainAxisSize: MainAxisSize.max,
-            mainAxisAlignment:
-                isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
-            children: [
-              if (!isRight) Flexible(child: label),
-              if (isRight) Flexible(child: label),
-              if (key != null) ...[
-                const SizedBox(width: 2),
-                Icon(
-                  active
-                      ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward)
-                      : Icons.unfold_more,
-                  size: 13,
-                  color: active ? onPrimary : onPrimary.withValues(alpha: 0.5),
-                ),
-              ],
-            ],
-          );
-          return Padding(
-            padding: const EdgeInsets.only(right: _cellGap),
+        children: [
+          for (var i = 0; i < _columns.length; i++) ...[
+            _headerCell(theme, i, onPrimary),
+            _resizeHandle(i, onPrimary),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _headerCell(ThemeData theme, int i, Color onPrimary) {
+    final c = _columns[i];
+    final key = c.$4;
+    final active = key != null && key == _sortKey;
+    final isRight = c.$3 == TextAlign.right;
+    final label = Text(
+      c.$1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontWeight: FontWeight.w800,
+        fontSize: 11,
+        letterSpacing: 0.5,
+        color: active ? onPrimary : onPrimary.withValues(alpha: 0.85),
+      ),
+    );
+    final content = Row(
+      mainAxisSize: MainAxisSize.max,
+      mainAxisAlignment:
+          isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
+      children: [
+        Flexible(child: label),
+        if (key != null) ...[
+          const SizedBox(width: 2),
+          Icon(
+            active
+                ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward)
+                : Icons.unfold_more,
+            size: 13,
+            color: active ? onPrimary : onPrimary.withValues(alpha: 0.5),
+          ),
+        ],
+      ],
+    );
+    return SizedBox(
+      width: _colWidths[i],
+      child: key == null
+          ? content
+          : InkWell(onTap: () => _onSort(key), child: content),
+    );
+  }
+
+  // A draggable grip occupying the inter-column gap. Drag to resize the column
+  // to its left; double-tap to reset it to the default width.
+  Widget _resizeHandle(int i, Color onPrimary) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragUpdate: (d) => _resizeColumn(i, d.delta.dx),
+        onDoubleTap: () {
+          setState(() => _colWidths[i] = _columns[i].$2);
+          _saveColWidths();
+        },
+        child: Semantics(
+          label: 'Resize ${_columns[i].$1} column',
+          child: Tooltip(
+            message: 'Drag to resize · double-tap to reset',
             child: SizedBox(
-              width: c.$2,
-              child: key == null
-                  ? content
-                  : InkWell(
-                      onTap: () => _onSort(key),
-                      child: content,
-                    ),
+              width: _cellGap,
+              height: double.infinity,
+              child: Center(
+                child: Container(
+                  width: 1.5,
+                  height: 16,
+                  color: onPrimary.withValues(alpha: 0.3),
+                ),
+              ),
             ),
-          );
-        }).toList(),
+          ),
+        ),
       ),
     );
   }
@@ -1013,7 +1174,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       NumberFormat.currency(symbol: '\$', decimalDigits: 2).format(amount),
       tx.category.replaceAll('-', ' ').toLowerCase(),
     ];
-    return Container(
+    return InkWell(
+      onTap: () => _showTxDetail(theme, tx),
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
       decoration: BoxDecoration(
         color: rowInPage.isOdd ? theme.colorScheme.surfaceContainerLow : null,
@@ -1031,7 +1194,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           return Padding(
             padding: const EdgeInsets.only(right: _cellGap),
             child: SizedBox(
-              width: _columns[c].$2,
+              width: _colWidths[c],
               child: Text(
                 values[c],
                 textAlign: _columns[c].$3,
@@ -1054,6 +1217,79 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
           );
         }),
+      ),
+      ),
+    );
+  }
+
+  void _showTxDetail(ThemeData theme, Expense tx) {
+    final amount = tx.debit > 0 ? -tx.debit : tx.credit;
+    final isDebit = tx.debit > 0;
+    final money = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(isDebit ? Icons.south_west : Icons.north_east,
+            color: isDebit ? theme.colorScheme.error : Colors.green.shade600),
+        title: Text(money.format(amount),
+            style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color:
+                    isDebit ? theme.colorScheme.error : Colors.green.shade700)),
+        content: SelectionArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _detailRow(theme, 'Description', tx.description),
+              _detailRow(theme, 'Date', tx.date),
+              _detailRow(theme, 'Category',
+                  tx.category.replaceAll('-', ' ').toLowerCase()),
+              _detailRow(theme, 'Bank', tx.source),
+              if (tx.debit > 0)
+                _detailRow(theme, 'Debit', money.format(tx.debit)),
+              if (tx.credit > 0)
+                _detailRow(theme, 'Credit', money.format(tx.credit)),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(
+                  text: '${tx.date} | ${tx.description} | '
+                      '${tx.category} | ${tx.source} | ${money.format(amount)}'));
+              Navigator.pop(ctx);
+            },
+            child: const Text('Copy'),
+          ),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(ThemeData theme, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(value,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w500)),
+          ),
+        ],
       ),
     );
   }
@@ -1163,24 +1399,48 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildError(ThemeData theme) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-            const SizedBox(height: 16),
-            Text('Failed to load data', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(_error!,
-                textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _loadData,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
-          ],
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.sentiment_dissatisfied_rounded,
+                  size: 56, color: theme.colorScheme.error),
+              const SizedBox(height: 16),
+              Text("Couldn't load your data",
+                  style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Text(_error!,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 8),
+              Text('Current source: ${DatabaseService().currentPath}',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 24),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _loadData,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => showDbPathDialog(context, ref),
+                    icon: const Icon(Icons.folder_open),
+                    label: const Text('Set data source'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

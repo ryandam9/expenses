@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_filter.dart';
 import '../services/database_service.dart';
 import '../providers/filter_provider.dart';
+import '../providers/prefs_provider.dart';
 
 /// Persistent vertical filter sidebar: period selection (monthly or custom)
 /// plus a multi-select category checklist scoped to the selected period.
@@ -120,6 +121,8 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
         _loadPeriodCategories(next);
       }
     });
+    // Refresh the year/category options when the data source changes.
+    ref.listen(dataReloadProvider, (_, __) => _loadOptions());
 
     return Container(
       width: 288,
