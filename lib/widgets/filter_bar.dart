@@ -125,7 +125,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
       width: 288,
       decoration: BoxDecoration(
         color: cs.surface,
-        border: Border(right: BorderSide(color: cs.outline, width: 2)),
+        border: Border(right: BorderSide(color: cs.outlineVariant, width: 1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -343,37 +343,63 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
   }) {
     final cs = theme.colorScheme;
     final selected = value == true;
-    return InkWell(
-      onTap: onChanged,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 22,
-              height: 22,
-              child: Checkbox(
-                value: value,
-                tristate: tristate,
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                onChanged: (_) => onChanged(),
-              ),
+    final indeterminate = value == null;
+    final marked = selected || indeterminate;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onChanged,
+          borderRadius: BorderRadius.circular(10),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            decoration: BoxDecoration(
+              color: selected
+                  ? cs.primary.withValues(alpha: 0.08)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight:
-                      (selected || bold) ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? cs.primary : cs.onSurface,
+            child: Row(
+              children: [
+                // Custom check indicator: a rounded square that fills with the
+                // accent colour and reveals a tick (or a dash when partial).
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeOut,
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: marked ? cs.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: marked ? cs.primary : cs.outline,
+                      width: 2,
+                    ),
+                  ),
+                  child: indeterminate
+                      ? Icon(Icons.remove, size: 14, color: cs.onPrimary)
+                      : (selected
+                          ? Icon(Icons.check, size: 14, color: cs.onPrimary)
+                          : null),
                 ),
-                overflow: TextOverflow.ellipsis,
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight:
+                          (selected || bold) ? FontWeight.w700 : FontWeight.w500,
+                      color: selected ? cs.primary : cs.onSurface,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

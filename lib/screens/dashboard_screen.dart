@@ -286,10 +286,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   // ------------------------------------------------------------------ overview
+  // Index of the donut slice currently under the pointer (-1 = none). Drives
+  // the slice "pop" and the live readout in the donut's centre.
+  int _touchedPie = -1;
+
   Widget _buildOverview(ThemeData theme) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _sectionTitle(theme, 'Spending Over Time'),
+        const SizedBox(height: 10),
+        _buildTrendCard(theme),
+        const SizedBox(height: 24),
         _sectionTitle(theme, 'Spending by Category'),
         const SizedBox(height: 10),
         _buildCategoryCard(theme),
@@ -300,7 +308,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _sectionTitle(ThemeData theme, String title) {
     return Row(
       children: [
-        Container(width: 4, height: 18, color: theme.colorScheme.primary),
+        Container(
+          width: 4,
+          height: 18,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
         const SizedBox(width: 10),
         Text(title,
             style: theme.textTheme.titleMedium
@@ -309,67 +324,135 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildCategoryCard(ThemeData theme) {
-    if (_categorySpend.isEmpty) {
-      return _emptyCard(theme, Icons.bar_chart, 'No expense data for this filter');
+  BoxDecoration _cardDecoration(ThemeData theme) => BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
+      );
+
+  // Aggregates expenses (debits) into an ordered time series. Spans wider than
+  // ~two months collapse to one point per calendar month so the axis stays
+  // legible; shorter spans keep per-day resolution.
+  (List<MapEntry<String, double>>, bool) _trendSeries() {
+    final distinctDays = <String>{};
+    for (final e in _transactions) {
+      if (e.debit > 0) distinctDays.add(e.date);
     }
-    final entries = _categorySpend.entries.toList();
-    final maxVal = entries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-    final total = entries.fold<double>(0, (s, e) => s + e.value);
-    final colors = _categoryColors(entries.length);
+    final monthly = distinctDays.length > 62;
+    final byKey = <String, double>{};
+    for (final e in _transactions) {
+      if (e.debit <= 0) continue;
+      final d = e.date;
+      final key = monthly ? (d.length >= 7 ? d.substring(0, 7) : d) : d;
+      byKey[key] = (byKey[key] ?? 0) + e.debit;
+    }
+    final entries = byKey.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    return (entries, monthly);
+  }
+
+  String _trendLabel(String key, bool monthly, {bool full = false}) {
+    final dt = DateTime.tryParse(monthly ? '$key-01' : key);
+    if (dt == null) return key;
+    if (monthly) return DateFormat(full ? 'MMM yyyy' : 'MMM').format(dt);
+    return DateFormat(full ? 'd MMM yyyy' : 'd/M').format(dt);
+  }
+
+  Widget _buildTrendCard(ThemeData theme) {
+    final cs = theme.colorScheme;
+    final (series, monthly) = _trendSeries();
+    if (series.isEmpty) {
+      return _emptyCard(theme, Icons.show_chart, 'No expense data for this filter');
+    }
+    final maxY = series.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    final totalSpend = series.fold<double>(0, (s, e) => s + e.value);
+    final spots = [
+      for (var i = 0; i < series.length; i++)
+        FlSpot(i.toDouble(), series[i].value)
+    ];
+    final lineColor = cs.primary;
+    final labelStep = (series.length / 6).ceil().clamp(1, series.length);
 
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1.5),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 18, 18, 14),
+      decoration: _cardDecoration(theme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(_money(totalSpend),
+                  style: theme.textTheme.titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w800)),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Text('total spend · ${monthly ? 'by month' : 'by day'}',
+                    style: theme.textTheme.labelSmall
+                        ?.copyWith(color: cs.onSurfaceVariant)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
           SizedBox(
-            height: 280,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: maxVal * 1.18,
-                barTouchData: BarTouchData(
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipItem: (group, _, rod, __) => BarTooltipItem(
-                      '${entries[group.x].key.replaceAll('-', ' ')}\n',
-                      const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11),
-                      children: [
-                        TextSpan(
-                          text: _money(rod.toY),
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 11),
-                        ),
-                      ],
-                    ),
+            height: 240,
+            child: LineChart(
+              LineChartData(
+                minY: 0,
+                maxY: maxY <= 0 ? 1 : maxY * 1.15,
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipItems: (touched) => touched.map((t) {
+                      final e = series[t.x.toInt()];
+                      return LineTooltipItem(
+                        '${_trendLabel(e.key, monthly, full: true)}\n',
+                        const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11),
+                        children: [
+                          TextSpan(
+                            text: _money(e.value),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 11),
+                          ),
+                        ],
+                      );
+                    }).toList(),
                   ),
                 ),
-                barGroups: List.generate(entries.length, (i) {
-                  return BarChartGroupData(x: i, barRods: [
-                    BarChartRodData(
-                      toY: entries[i].value,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    curveSmoothness: 0.25,
+                    preventCurveOverShooting: true,
+                    color: lineColor,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(
+                      show: series.length <= 31,
+                      getDotPainter: (s, _, __, ___) => FlDotCirclePainter(
+                        radius: 3,
+                        color: Colors.white,
+                        strokeWidth: 2,
+                        strokeColor: lineColor,
+                      ),
+                    ),
+                    belowBarData: BarAreaData(
+                      show: true,
                       gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
                         colors: [
-                          colors[i].withValues(alpha: 0.78),
-                          colors[i],
+                          lineColor.withValues(alpha: 0.28),
+                          lineColor.withValues(alpha: 0.02),
                         ],
                       ),
-                      width: 22,
-                      borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(6)),
                     ),
-                  ]);
-                }),
+                  ),
+                ],
                 titlesData: FlTitlesData(
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
@@ -384,24 +467,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
-                      reservedSize: 54,
+                      reservedSize: 28,
+                      interval: 1,
                       getTitlesWidget: (v, _) {
                         final i = v.toInt();
-                        if (i < 0 || i >= entries.length) return const SizedBox();
+                        if (i < 0 || i >= series.length) return const SizedBox();
+                        if (i % labelStep != 0) return const SizedBox();
                         return Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Transform.rotate(
-                            angle: -0.5,
-                            child: SizedBox(
-                              width: 60,
-                              child: Text(
-                                entries[i].key.replaceAll('-', ' ').toLowerCase(),
-                                style: const TextStyle(fontSize: 8),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                          ),
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(_trendLabel(series[i].key, monthly),
+                              style: const TextStyle(fontSize: 9)),
                         );
                       },
                     ),
@@ -415,48 +490,176 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: maxVal / 4,
+                  horizontalInterval: maxY <= 0 ? 1 : maxY / 4,
                   getDrawingHorizontalLine: (_) => FlLine(
-                      color: theme.colorScheme.outlineVariant, strokeWidth: 0.5),
+                      color: cs.outlineVariant, strokeWidth: 0.5),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          const Divider(height: 1),
-          const SizedBox(height: 8),
-          ...entries.take(8).map((e) {
-            final pct = total == 0 ? 0.0 : e.value / total;
-            final color = colors[entries.indexOf(e)];
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(e.key.replaceAll('-', ' ').toLowerCase(),
-                        style: const TextStyle(fontSize: 12)),
-                  ),
-                  Text('${(pct * 100).toStringAsFixed(1)}%',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: theme.colorScheme.onSurfaceVariant)),
-                  const SizedBox(width: 12),
-                  Text(_money(e.value),
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w700)),
-                ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryCard(ThemeData theme) {
+    if (_categorySpend.isEmpty) {
+      return _emptyCard(theme, Icons.donut_large, 'No expense data for this filter');
+    }
+    final entries = _categorySpend.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final total = entries.fold<double>(0, (s, e) => s + e.value);
+    final colors = _categoryColors(entries.length);
+
+    final donut = SizedBox(
+      width: 220,
+      height: 220,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: 62,
+              startDegreeOffset: -90,
+              pieTouchData: PieTouchData(
+                touchCallback: (event, resp) {
+                  setState(() {
+                    if (!event.isInterestedForInteractions ||
+                        resp == null ||
+                        resp.touchedSection == null) {
+                      _touchedPie = -1;
+                    } else {
+                      _touchedPie = resp.touchedSection!.touchedSectionIndex;
+                    }
+                  });
+                },
               ),
+              sections: [
+                for (var i = 0; i < entries.length; i++)
+                  PieChartSectionData(
+                    value: entries[i].value,
+                    color: colors[i],
+                    radius: _touchedPie == i ? 30 : 24,
+                    showTitle: false,
+                  ),
+              ],
+            ),
+          ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _touchedPie >= 0 && _touchedPie < entries.length
+                    ? '${(entries[_touchedPie].value / total * 100).toStringAsFixed(1)}%'
+                    : _money(total),
+                style: theme.textTheme.titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              Text(
+                _touchedPie >= 0 && _touchedPie < entries.length
+                    ? entries[_touchedPie].key.replaceAll('-', ' ').toLowerCase()
+                    : 'total',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.labelSmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    final legend = SelectionArea(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < entries.length; i++)
+            _legendRow(theme, entries[i], colors[i], total, i),
+        ],
+      ),
+    );
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: _cardDecoration(theme),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          if (c.maxWidth < 560) {
+            return Column(
+              children: [donut, const SizedBox(height: 16), legend],
             );
-          }),
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              donut,
+              const SizedBox(width: 24),
+              Expanded(child: legend),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _legendRow(ThemeData theme, MapEntry<String, double> e, Color color,
+      double total, int i) {
+    final cs = theme.colorScheme;
+    final pct = total == 0 ? 0.0 : e.value / total;
+    final active = _touchedPie == i;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: active ? color.withValues(alpha: 0.10) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(e.key.replaceAll('-', ' ').toLowerCase(),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 60,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 6,
+                backgroundColor: cs.surfaceContainerHigh,
+                color: color,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text('${(pct * 100).toStringAsFixed(1)}%',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurfaceVariant)),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 72,
+            child: Text(_money(e.value),
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                    fontSize: 12.5, fontWeight: FontWeight.w700)),
+          ),
         ],
       ),
     );
@@ -585,12 +788,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: Scrollbar(
                     controller: _vScroll,
                     thumbVisibility: true,
-                    child: ListView.builder(
-                      controller: _vScroll,
-                      itemCount: list.length,
-                      itemExtent: 44,
-                      itemBuilder: (context, i) =>
-                          _tableRow(theme, list[i], startIndex + i, i),
+                    child: SelectionArea(
+                      child: ListView.builder(
+                        controller: _vScroll,
+                        itemCount: list.length,
+                        itemBuilder: (context, i) =>
+                            _tableRow(theme, list[i], startIndex + i, i),
+                      ),
                     ),
                   ),
                 ),
@@ -670,7 +874,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       tx.category.replaceAll('-', ' ').toLowerCase(),
     ];
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
       decoration: BoxDecoration(
         color: rowInPage.isOdd ? theme.colorScheme.surfaceContainerLow : null,
         border: Border(
@@ -678,8 +882,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       ),
       child: Row(
+        // Rows size to their content so a long description can wrap onto
+        // several lines; top-align the other cells against the first line.
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: List.generate(_columns.length, (c) {
           final isAmount = c == 4;
+          final isDescription = c == 2;
           return Padding(
             padding: const EdgeInsets.only(right: _cellGap),
             child: SizedBox(
@@ -687,9 +895,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               child: Text(
                 values[c],
                 textAlign: _columns[c].$3,
-                overflow: TextOverflow.ellipsis,
+                softWrap: isDescription,
+                overflow: isDescription
+                    ? TextOverflow.visible
+                    : TextOverflow.ellipsis,
+                maxLines: isDescription ? null : 1,
                 style: TextStyle(
                   fontSize: 12.5,
+                  height: isDescription ? 1.35 : null,
                   fontWeight: isAmount ? FontWeight.w800 : FontWeight.w500,
                   color: isAmount
                       ? (isDebit
