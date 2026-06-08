@@ -87,6 +87,7 @@ class ExpensesApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeIndex = ref.watch(themeIndexProvider);
+    final themeMode = ref.watch(themeModeProvider);
     final font = ref.watch(fontFamilyProvider);
     final fontSize = ref.watch(fontSizeProvider);
     final t = appThemes[themeIndex];
@@ -94,27 +95,20 @@ class ExpensesApp extends ConsumerWidget {
     final fontFamily = font == 'System Default' ? null : font;
     final scale = fontSize / 13.0;
 
-    final themed = t.light.copyWith(
-      textTheme: _applyFont(t.light.textTheme, fontFamily, scale),
-    );
-    final darkThemed = t.dark?.copyWith(
-      textTheme: _applyFont(t.dark!.textTheme, fontFamily, scale),
-    );
+    final light = t.themeData(Brightness.light);
+    final dark = t.themeData(Brightness.dark);
 
     return MaterialApp(
       title: 'Expenses Dashboard',
       debugShowCheckedModeBanner: false,
-      theme: themed,
-      darkTheme: darkThemed,
-      // Backgrounds are always light, regardless of the OS appearance — the
-      // feather palettes are tuned for a bright surface.
-      themeMode: ThemeMode.light,
-      // Themes differ structurally (Studio defines inheriting TextStyles while
-      // the palette themes use Material's non-inheriting defaults), so animating
-      // between them would crash in TextStyle.lerp. Swap instantly and remount
-      // the shell so no widget lerps text styles across themes.
-      themeAnimationDuration: Duration.zero,
-      home: MainShell(key: ValueKey(themeIndex)),
+      theme: light.copyWith(
+        textTheme: _applyFont(light.textTheme, fontFamily, scale),
+      ),
+      darkTheme: dark.copyWith(
+        textTheme: _applyFont(dark.textTheme, fontFamily, scale),
+      ),
+      themeMode: themeMode,
+      home: const MainShell(),
     );
   }
 }
