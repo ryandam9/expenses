@@ -4,14 +4,16 @@ import '../models/app_filter.dart';
 import '../services/database_service.dart';
 import '../providers/filter_provider.dart';
 
-class FilterBar extends ConsumerStatefulWidget {
-  const FilterBar({super.key});
+/// Persistent vertical filter sidebar: period selection (monthly or custom)
+/// plus a multi-select category checklist scoped to the selected period.
+class FilterPanel extends ConsumerStatefulWidget {
+  const FilterPanel({super.key});
 
   @override
-  ConsumerState<FilterBar> createState() => _FilterBarState();
+  ConsumerState<FilterPanel> createState() => _FilterPanelState();
 }
 
-class _FilterBarState extends ConsumerState<FilterBar> {
+class _FilterPanelState extends ConsumerState<FilterPanel> {
   final _db = DatabaseService();
 
   List<String> _categories = [];
@@ -20,7 +22,6 @@ class _FilterBarState extends ConsumerState<FilterBar> {
   String _mode = 'monthly'; // 'monthly' | 'custom'
   String? _selYear;
   int _selMonth = 0; // 0 = whole year
-  bool _catExpanded = false;
 
   static const _monthNames = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -36,7 +37,8 @@ class _FilterBarState extends ConsumerState<FilterBar> {
   Future<void> _loadOptions() async {
     try {
       final years = await _db.getYears();
-      final cats = await _db.getCategoriesForPeriod(filter: ref.read(filterProvider));
+      final cats =
+          await _db.getCategoriesForPeriod(filter: ref.read(filterProvider));
       if (mounted) {
         setState(() {
           _categories = cats;
@@ -47,8 +49,6 @@ class _FilterBarState extends ConsumerState<FilterBar> {
     } catch (_) {}
   }
 
-  /// Reloads the category options for the given period and drops any selected
-  /// categories that no longer exist within it.
   Future<void> _loadPeriodCategories(AppFilter f) async {
     try {
       final cats = await _db.getCategoriesForPeriod(filter: f);
@@ -88,7 +88,6 @@ class _FilterBarState extends ConsumerState<FilterBar> {
     if (s != null && e != null && !e.isBefore(s)) {
       initial = DateTimeRange(start: s, end: e);
     }
-
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2000),
@@ -97,35 +96,25 @@ class _FilterBarState extends ConsumerState<FilterBar> {
       helpText: 'Select date range',
       saveText: 'Apply',
     );
-
     if (picked != null) {
-      ref.read(filterProvider.notifier).setRange(_fmt(picked.start), _fmt(picked.end));
+      ref
+          .read(filterProvider.notifier)
+          .setRange(_fmt(picked.start), _fmt(picked.end));
     }
   }
 
-  DateTime? _parse(String? d) {
-    if (d == null || d.isEmpty) return null;
-    return DateTime.tryParse(d);
-  }
+  DateTime? _parse(String? d) =>
+      (d == null || d.isEmpty) ? null : DateTime.tryParse(d);
 
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  void _clear() {
-    setState(() {
-      _catExpanded = false;
-      _selMonth = 0;
-    });
-    ref.read(filterProvider.notifier).clearAll();
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final filter = ref.watch(filterProvider);
-    final hasFilter = filter.hasPeriod || filter.hasCategories;
 
-    // Keep the category options in sync with the selected period.
     ref.listen(filterProvider, (prev, next) {
       if (prev?.startDate != next.startDate || prev?.endDate != next.endDate) {
         _loadPeriodCategories(next);
@@ -133,300 +122,243 @@ class _FilterBarState extends ConsumerState<FilterBar> {
     });
 
     return Container(
+      width: 288,
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outline, width: 2),
-        ),
+        color: cs.surface,
+        border: Border(right: BorderSide(color: cs.outline, width: 2)),
       ),
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Row(
+              children: [
+                Icon(Icons.tune, size: 20, color: cs.primary),
+                const SizedBox(width: 8),
+                Text('Filters', style: theme.textTheme.titleMedium),
+                const Spacer(),
+                if (filter.hasPeriod || filter.hasCategories)
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _selMonth = 0);
+                      ref.read(filterProvider.notifier).clearAll();
+                    },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 32),
+                    ),
+                    child: const Text('Reset', style: TextStyle(fontSize: 12)),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
                     value: 'monthly',
                     label: Text('Monthly'),
-                    icon: Icon(Icons.calendar_view_month, size: 16),
-                  ),
-                  ButtonSegment(
+                    icon: Icon(Icons.calendar_view_month, size: 16)),
+                ButtonSegment(
                     value: 'custom',
                     label: Text('Custom'),
-                    icon: Icon(Icons.date_range, size: 16),
-                  ),
-                ],
-                selected: {_mode},
-                showSelectedIcon: false,
-                onSelectionChanged: (s) => setState(() => _mode = s.first),
-                style: ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  textStyle: WidgetStateProperty.all(
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                  ),
-                ),
+                    icon: Icon(Icons.date_range, size: 16)),
+              ],
+              selected: {_mode},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) => setState(() => _mode = s.first),
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                textStyle: WidgetStateProperty.all(
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
               ),
-              const Spacer(),
-              _buildCategoryChip(theme, filter),
-              if (hasFilter) ...[
-                const SizedBox(width: 4),
-                IconButton.filledTonal(
-                  onPressed: _clear,
-                  icon: const Icon(Icons.filter_alt_off, size: 18),
-                  tooltip: 'Clear filters',
-                  style: IconButton.styleFrom(
-                    padding: const EdgeInsets.all(8),
-                    minimumSize: const Size(36, 36),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _mode == 'monthly'
+                ? _buildMonthly(theme)
+                : _buildCustom(theme, filter),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Icon(Icons.category, size: 18, color: cs.primary),
+                const SizedBox(width: 8),
+                Text('Categories', style: theme.textTheme.titleSmall),
+                const Spacer(),
+                Text(
+                  filter.categories.isEmpty
+                      ? 'All'
+                      : '${filter.categories.length}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w800, color: cs.primary),
                 ),
               ],
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
-          if (_mode == 'monthly')
-            _buildMonthlyControls(theme)
-          else
-            _buildCustomControls(theme, filter),
-          if (_catExpanded) _buildCategoryPanel(theme, filter),
+          const SizedBox(height: 4),
+          Expanded(child: _buildCategoryList(theme, filter)),
         ],
       ),
     );
   }
 
-  Widget _buildMonthlyControls(ThemeData theme) {
-    return Row(
+  Widget _buildMonthly(ThemeData theme) {
+    return Column(
       children: [
-        Expanded(
-          flex: 2,
-          child: DropdownMenu<String>(
-            initialSelection: _selYear,
-            enableSearch: false,
-            expandedInsets: EdgeInsets.zero,
-            label: const Text('Year'),
-            leadingIcon: const Icon(Icons.event, size: 18),
-            dropdownMenuEntries:
-                _years.map((y) => DropdownMenuEntry(value: y, label: y)).toList(),
-            onSelected: (v) {
-              if (v != null) {
-                setState(() => _selYear = v);
-                _applyMonthly();
-              }
-            },
-          ),
+        DropdownMenu<String>(
+          initialSelection: _selYear,
+          enableSearch: false,
+          expandedInsets: EdgeInsets.zero,
+          label: const Text('Year'),
+          leadingIcon: const Icon(Icons.event, size: 18),
+          dropdownMenuEntries:
+              _years.map((y) => DropdownMenuEntry(value: y, label: y)).toList(),
+          onSelected: (v) {
+            if (v != null) {
+              setState(() => _selYear = v);
+              _applyMonthly();
+            }
+          },
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          flex: 3,
-          child: DropdownMenu<int>(
-            initialSelection: _selMonth,
-            enableSearch: false,
-            expandedInsets: EdgeInsets.zero,
-            label: const Text('Month'),
-            leadingIcon: const Icon(Icons.calendar_month, size: 18),
-            dropdownMenuEntries: [
-              const DropdownMenuEntry(value: 0, label: 'Whole year'),
-              for (var m = 1; m <= 12; m++)
-                DropdownMenuEntry(value: m, label: _monthNames[m - 1]),
-            ],
-            onSelected: (v) {
-              if (v != null) {
-                setState(() => _selMonth = v);
-                _applyMonthly();
-              }
-            },
-          ),
+        const SizedBox(height: 10),
+        DropdownMenu<int>(
+          initialSelection: _selMonth,
+          enableSearch: false,
+          expandedInsets: EdgeInsets.zero,
+          label: const Text('Month'),
+          leadingIcon: const Icon(Icons.calendar_month, size: 18),
+          dropdownMenuEntries: [
+            const DropdownMenuEntry(value: 0, label: 'Whole year'),
+            for (var m = 1; m <= 12; m++)
+              DropdownMenuEntry(value: m, label: _monthNames[m - 1]),
+          ],
+          onSelected: (v) {
+            if (v != null) {
+              setState(() => _selMonth = v);
+              _applyMonthly();
+            }
+          },
         ),
       ],
     );
   }
 
-  Widget _buildCustomControls(ThemeData theme, AppFilter filter) {
+  Widget _buildCustom(ThemeData theme, AppFilter filter) {
+    final cs = theme.colorScheme;
     final hasRange = filter.hasPeriod;
-    String label = 'Select date range';
-    if (hasRange) {
-      final s = filter.startDate ?? '…';
-      final e = filter.endDate ?? '…';
-      label = '$s  →  $e';
-    }
+    final label = hasRange
+        ? '${filter.startDate ?? '…'}  →  ${filter.endDate ?? '…'}'
+        : 'Select date range';
     return InkWell(
       onTap: () => _pickRange(context),
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.primary, width: 2),
-          borderRadius: BorderRadius.circular(4),
-          color: hasRange ? theme.colorScheme.primaryContainer : null,
+          border: Border.all(color: cs.primary, width: 2),
+          borderRadius: BorderRadius.circular(8),
+          color: hasRange ? cs.primaryContainer : null,
         ),
         child: Row(
           children: [
             Icon(Icons.date_range,
                 size: 18,
-                color: hasRange
-                    ? theme.colorScheme.onPrimaryContainer
-                    : theme.colorScheme.onSurface),
-            const SizedBox(width: 12),
+                color: hasRange ? cs.onPrimaryContainer : cs.onSurface),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(label,
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color:
+                          hasRange ? cs.onPrimaryContainer : cs.onSurface),
+                  overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryList(ThemeData theme, AppFilter filter) {
+    final cs = theme.colorScheme;
+    final allSelected = filter.categories.isEmpty;
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 16),
+      children: [
+        _categoryTile(
+          theme,
+          label: 'All categories',
+          selected: allSelected,
+          bold: true,
+          onChanged: () => ref.read(filterProvider.notifier).setCategories([]),
+        ),
+        const Divider(height: 1, indent: 12, endIndent: 12),
+        if (_categories.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text('No categories in this period',
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+          )
+        else
+          ..._categories.map((c) => _categoryTile(
+                theme,
+                label: c.replaceAll('-', ' ').toLowerCase(),
+                selected: filter.categories.contains(c),
+                onChanged: () =>
+                    ref.read(filterProvider.notifier).toggleCategory(c),
+              )),
+      ],
+    );
+  }
+
+  Widget _categoryTile(
+    ThemeData theme, {
+    required String label,
+    required bool selected,
+    required VoidCallback onChanged,
+    bool bold = false,
+  }) {
+    final cs = theme.colorScheme;
+    return InkWell(
+      onTap: onChanged,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: Checkbox(
+                value: selected,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: (_) => onChanged(),
+              ),
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: hasRange
-                      ? theme.colorScheme.onPrimaryContainer
-                      : theme.colorScheme.onSurface,
+                  fontWeight:
+                      (selected || bold) ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? cs.primary : cs.onSurface,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Icon(Icons.edit_calendar,
-                size: 18,
-                color: hasRange
-                    ? theme.colorScheme.onPrimaryContainer
-                    : theme.colorScheme.onSurfaceVariant),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryChip(ThemeData theme, AppFilter filter) {
-    final notifier = ref.read(filterProvider.notifier);
-    final label = notifier.categoriesLabel;
-    return GestureDetector(
-      onTap: () => setState(() => _catExpanded = !_catExpanded),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          border: Border.all(color: theme.colorScheme.primary, width: 2),
-          color: filter.hasCategories
-              ? theme.colorScheme.primary
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.category,
-              size: 16,
-              color: filter.hasCategories
-                  ? theme.colorScheme.onPrimary
-                  : theme.colorScheme.onSurface,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: filter.hasCategories
-                    ? theme.colorScheme.onPrimary
-                    : theme.colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              _catExpanded ? Icons.expand_less : Icons.expand_more,
-              size: 18,
-              color: filter.hasCategories
-                  ? theme.colorScheme.onPrimary
-                  : theme.colorScheme.onSurface,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryPanel(ThemeData theme, AppFilter filter) {
-    final allSelected = filter.categories.isEmpty;
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.primary, width: 2),
-        borderRadius: BorderRadius.circular(4),
-        color: theme.colorScheme.surfaceContainerLowest,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHigh,
-              border: Border(
-                bottom: BorderSide(color: theme.colorScheme.outlineVariant, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.filter_list, size: 16, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Text('Categories in period', style: theme.textTheme.labelLarge),
-                const Spacer(),
-                Text(
-                  allSelected ? 'All' : '${filter.categories.length} selected',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          CheckboxListTile(
-            dense: true,
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-            value: allSelected,
-            title: const Text('All categories',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-            onChanged: (_) => ref.read(filterProvider.notifier).setCategories([]),
-          ),
-          const Divider(height: 1),
-          if (_categories.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('No categories in this period',
-                  style: TextStyle(fontSize: 12)),
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 280),
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                itemCount: _categories.length,
-                itemBuilder: (context, i) {
-                  final c = _categories[i];
-                  final selected = filter.categories.contains(c);
-                  return CheckboxListTile(
-                    dense: true,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                    value: selected,
-                    title: Text(
-                      c.replaceAll('-', ' ').toLowerCase(),
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      ),
-                    ),
-                    onChanged: (_) =>
-                        ref.read(filterProvider.notifier).toggleCategory(c),
-                  );
-                },
-              ),
-            ),
-        ],
       ),
     );
   }
