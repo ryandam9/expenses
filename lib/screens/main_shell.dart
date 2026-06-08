@@ -2,33 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dashboard_screen.dart';
 import 'settings_screen.dart';
+import '../providers/nav_provider.dart';
 
-class MainShell extends ConsumerStatefulWidget {
+class MainShell extends ConsumerWidget {
   const MainShell({super.key});
 
   @override
-  ConsumerState<MainShell> createState() => _MainShellState();
-}
-
-class _MainShellState extends ConsumerState<MainShell> {
-  int _selectedIndex = 0;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    
+    final selectedIndex = ref.watch(navIndexProvider);
+
     return Scaffold(
       body: Row(
         children: [
           NavigationRail(
-            selectedIndex: _selectedIndex,
-            onDestinationSelected: (i) => setState(() => _selectedIndex = i),
+            selectedIndex: selectedIndex,
+            onDestinationSelected: (i) =>
+                ref.read(navIndexProvider.notifier).select(i),
             extended: false,
             leading: Padding(
               padding: const EdgeInsets.symmetric(vertical: 16),
               child: AnimatedRotation(
                 duration: const Duration(milliseconds: 300),
-                turns: _selectedIndex == 0 ? 0.05 : 0,
+                turns: selectedIndex == 0 ? 0.05 : 0,
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -93,7 +89,7 @@ class _MainShellState extends ConsumerState<MainShell> {
               duration: const Duration(milliseconds: 200),
               switchInCurve: Curves.easeInOut,
               switchOutCurve: Curves.easeInOut,
-              child: _selectedIndex == 0
+              child: selectedIndex == 0
                   ? const DashboardScreen(key: ValueKey('dashboard'))
                   : const SettingsScreen(key: ValueKey('settings')),
             ),
