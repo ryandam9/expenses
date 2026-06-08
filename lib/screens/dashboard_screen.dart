@@ -300,8 +300,149 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         const SizedBox(height: 24),
         _sectionTitle(theme, 'Spending by Category'),
         const SizedBox(height: 10),
+        _buildCategoryBarCard(theme),
+        const SizedBox(height: 24),
+        _sectionTitle(theme, 'Category Share'),
+        const SizedBox(height: 10),
         _buildCategoryCard(theme),
       ],
+    );
+  }
+
+  // A straightforward bar chart: one bar per category (X) sized by its total
+  // spend (Y). Categories are ordered high-to-low so the ranking reads at a
+  // glance; bars take the category's own colour from the chart palette.
+  Widget _buildCategoryBarCard(ThemeData theme) {
+    final cs = theme.colorScheme;
+    if (_categorySpend.isEmpty) {
+      return _emptyCard(theme, Icons.bar_chart, 'No expense data for this filter');
+    }
+    final entries = _categorySpend.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final maxVal = entries.first.value;
+    final colors = _categoryColors(entries.length);
+    // Keep bars readable: give each one breathing room and let the card scroll
+    // horizontally when there are many categories.
+    final chartWidth =
+        (entries.length * 56).toDouble().clamp(0, double.infinity);
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 18, 16, 8),
+      decoration: _cardDecoration(theme),
+      child: SizedBox(
+        height: 300,
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final width = chartWidth < c.maxWidth ? c.maxWidth : chartWidth;
+            return Scrollbar(
+              thumbVisibility: chartWidth > c.maxWidth,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: width,
+                  child: BarChart(
+                    BarChartData(
+                      alignment: BarChartAlignment.spaceAround,
+                      maxY: maxVal <= 0 ? 1 : maxVal * 1.18,
+                      barTouchData: BarTouchData(
+                        touchTooltipData: BarTouchTooltipData(
+                          getTooltipItem: (group, _, rod, __) => BarTooltipItem(
+                            '${entries[group.x].key.replaceAll('-', ' ')}\n',
+                            const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 11),
+                            children: [
+                              TextSpan(
+                                text: _money(rod.toY),
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      barGroups: [
+                        for (var i = 0; i < entries.length; i++)
+                          BarChartGroupData(x: i, barRods: [
+                            BarChartRodData(
+                              toY: entries[i].value,
+                              width: 24,
+                              borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(6)),
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [
+                                  colors[i].withValues(alpha: 0.75),
+                                  colors[i],
+                                ],
+                              ),
+                            ),
+                          ]),
+                      ],
+                      titlesData: FlTitlesData(
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 46,
+                            getTitlesWidget: (v, _) => v == 0
+                                ? const SizedBox()
+                                : Text(_money(v),
+                                    style: const TextStyle(fontSize: 9)),
+                          ),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 56,
+                            getTitlesWidget: (v, _) {
+                              final i = v.toInt();
+                              if (i < 0 || i >= entries.length) {
+                                return const SizedBox();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Transform.rotate(
+                                  angle: -0.5,
+                                  child: SizedBox(
+                                    width: 58,
+                                    child: Text(
+                                      entries[i]
+                                          .key
+                                          .replaceAll('-', ' ')
+                                          .toLowerCase(),
+                                      style: const TextStyle(fontSize: 8.5),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        topTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                        rightTitles: const AxisTitles(
+                            sideTitles: SideTitles(showTitles: false)),
+                      ),
+                      borderData: FlBorderData(show: false),
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        horizontalInterval: maxVal <= 0 ? 1 : maxVal / 4,
+                        getDrawingHorizontalLine: (_) => FlLine(
+                            color: cs.outlineVariant, strokeWidth: 0.5),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 
