@@ -323,8 +323,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final colors = _categoryColors(entries.length);
     // Keep bars readable: give each one breathing room and let the card scroll
     // horizontally when there are many categories.
-    final chartWidth =
-        (entries.length * 56).toDouble().clamp(0, double.infinity);
+    final chartWidth = (entries.length * 56).toDouble();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 18, 16, 8),
