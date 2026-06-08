@@ -34,6 +34,7 @@ const systemFonts = [
   // Sans-serif
   'Inter',
   'Roboto',
+  'Roboto Condensed',
   'Open Sans',
   'Lato',
   'Montserrat',
