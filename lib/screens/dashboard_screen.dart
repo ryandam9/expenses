@@ -28,6 +28,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   String? _error;
   String _section = 'overview';
 
+  int _page = 0;
+  int _pageSize = 50;
+  static const _pageSizeOptions = [25, 50, 100, 200];
+
   static const _chartColors = [
     Color(0xFFE57373),
     Color(0xFF64B5F6),
@@ -83,6 +87,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         _txCount = results[2] as int;
         _categorySpend = results[3] as Map<String, double>;
         _transactions = results[4] as List<Expense>;
+        _page = 0;
         _loading = false;
       });
     } catch (e) {
@@ -232,6 +237,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildTransactionsView(ThemeData theme) {
+    final all = _filteredTx(_searchCtrl.text);
+    final total = all.length;
+    final pageCount = total == 0 ? 1 : (total / _pageSize).ceil();
+    if (_page >= pageCount) _page = pageCount - 1;
+    final startIndex = _page * _pageSize;
+    final pageItems = all.skip(startIndex).take(_pageSize).toList();
+
     return Column(
       children: [
         Padding(
@@ -254,7 +266,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                 ],
                 onTap: () => controller.openView(),
-                onChanged: (_) => setState(() {}),
+                onChanged: (_) => setState(() => _page = 0),
                 elevation: WidgetStateProperty.all(0),
                 shape: WidgetStateProperty.all(
                   const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
@@ -289,20 +301,82 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             },
           ),
         ),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          color: theme.colorScheme.surfaceContainerLow,
-          child: Text(
-            '${_filteredTx(_searchCtrl.text).length} transactions',
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.onSurfaceVariant,
+        Expanded(
+          child: _buildTransactionTable(theme, pageItems, startIndex),
+        ),
+        _buildPaginationBar(theme, total, startIndex, pageItems.length, pageCount),
+      ],
+    );
+  }
+
+  Widget _buildPaginationBar(
+      ThemeData theme, int total, int startIndex, int shown, int pageCount) {
+    final from = total == 0 ? 0 : startIndex + 1;
+    final to = startIndex + shown;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outline, width: 2),
+        ),
+      ),
+      child: Row(
+        children: [
+          Text('Rows:', style: theme.textTheme.labelSmall),
+          const SizedBox(width: 8),
+          DropdownButton<int>(
+            value: _pageSize,
+            isDense: true,
+            underline: const SizedBox.shrink(),
+            borderRadius: BorderRadius.circular(8),
+            items: _pageSizeOptions
+                .map((n) => DropdownMenuItem(
+                      value: n,
+                      child: Text('$n',
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w700)),
+                    ))
+                .toList(),
+            onChanged: (v) {
+              if (v != null) setState(() {
+                _pageSize = v;
+                _page = 0;
+              });
+            },
+          ),
+          const Spacer(),
+          Text(
+            '$from–$to of $total',
+            style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(width: 8),
+          IconButton.outlined(
+            onPressed: _page > 0 ? () => setState(() => _page--) : null,
+            icon: const Icon(Icons.chevron_left, size: 20),
+            tooltip: 'Previous',
+            style: IconButton.styleFrom(
+              minimumSize: const Size(36, 36),
+              padding: EdgeInsets.zero,
             ),
           ),
-        ),
-        Expanded(child: _buildTransactionTable(theme)),
-      ],
+          const SizedBox(width: 4),
+          Text(
+            '${_page + 1}/$pageCount',
+            style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(width: 4),
+          IconButton.outlined(
+            onPressed: _page < pageCount - 1 ? () => setState(() => _page++) : null,
+            icon: const Icon(Icons.chevron_right, size: 20),
+            tooltip: 'Next',
+            style: IconButton.styleFrom(
+              minimumSize: const Size(36, 36),
+              padding: EdgeInsets.zero,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -319,8 +393,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   double get _tableWidth =>
       _columns.fold(0.0, (sum, c) => sum + c.$2) + 24;
 
-  Widget _buildTransactionTable(ThemeData theme) {
-    final list = _filteredTx(_searchCtrl.text);
+  Widget _buildTransactionTable(ThemeData theme, List<Expense> list, int startIndex) {
     if (list.isEmpty) {
       return Center(
         child: Column(
@@ -347,7 +420,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 child: ListView.builder(
                   itemCount: list.length,
                   itemExtent: 40,
-                  itemBuilder: (context, i) => _tableRow(theme, list[i], i),
+                  itemBuilder: (context, i) =>
+                      _tableRow(theme, list[i], startIndex + i, i),
                 ),
               ),
             ],
@@ -387,10 +461,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _tableRow(ThemeData theme, Expense tx, int i) {
+  Widget _tableRow(ThemeData theme, Expense tx, int displayIndex, int rowInPage) {
     final amount = tx.debit > 0 ? -tx.debit : tx.credit;
     final values = <String>[
-      '${i + 1}',
+      '${displayIndex + 1}',
       tx.date,
       tx.description,
       tx.source,
@@ -400,7 +474,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: i.isOdd ? theme.colorScheme.surfaceContainerLow : null,
+        color: rowInPage.isOdd ? theme.colorScheme.surfaceContainerLow : null,
         border: Border(
           bottom: BorderSide(color: theme.dividerColor, width: 0.5),
         ),

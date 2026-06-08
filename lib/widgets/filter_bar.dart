@@ -35,14 +35,31 @@ class _FilterBarState extends ConsumerState<FilterBar> {
 
   Future<void> _loadOptions() async {
     try {
-      final cats = await _db.getCategories();
       final years = await _db.getYears();
+      final cats = await _db.getCategoriesForPeriod(filter: ref.read(filterProvider));
       if (mounted) {
         setState(() {
           _categories = cats;
           _years = years;
           _selYear = years.isNotEmpty ? years.first : null;
         });
+      }
+    } catch (_) {}
+  }
+
+  /// Reloads the category options for the given period and drops any selected
+  /// categories that no longer exist within it.
+  Future<void> _loadPeriodCategories(AppFilter f) async {
+    try {
+      final cats = await _db.getCategoriesForPeriod(filter: f);
+      if (!mounted) return;
+      setState(() => _categories = cats);
+      final selected = f.categories;
+      if (selected.isNotEmpty) {
+        final pruned = selected.where(cats.contains).toList();
+        if (pruned.length != selected.length) {
+          ref.read(filterProvider.notifier).setCategories(pruned);
+        }
       }
     } catch (_) {}
   }
@@ -107,6 +124,13 @@ class _FilterBarState extends ConsumerState<FilterBar> {
     final theme = Theme.of(context);
     final filter = ref.watch(filterProvider);
     final hasFilter = filter.hasPeriod || filter.hasCategories;
+
+    // Keep the category options in sync with the selected period.
+    ref.listen(filterProvider, (prev, next) {
+      if (prev?.startDate != next.startDate || prev?.endDate != next.endDate) {
+        _loadPeriodCategories(next);
+      }
+    });
 
     return Container(
       decoration: BoxDecoration(
@@ -322,61 +346,86 @@ class _FilterBarState extends ConsumerState<FilterBar> {
   }
 
   Widget _buildCategoryPanel(ThemeData theme, AppFilter filter) {
+    final allSelected = filter.categories.isEmpty;
     return Container(
       margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         border: Border.all(color: theme.colorScheme.primary, width: 2),
         borderRadius: BorderRadius.circular(4),
-        color: theme.colorScheme.surfaceContainerLow,
+        color: theme.colorScheme.surfaceContainerLowest,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Icon(Icons.filter_list, size: 16, color: theme.colorScheme.primary),
-              const SizedBox(width: 8),
-              Text('Select Categories', style: theme.textTheme.labelLarge),
-              const Spacer(),
-              if (filter.hasCategories)
-                TextButton.icon(
-                  onPressed: () => ref.read(filterProvider.notifier).setCategories([]),
-                  icon: const Icon(Icons.clear_all, size: 16),
-                  label: const Text('Clear', style: TextStyle(fontSize: 12)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: _categories.map((c) {
-              final selected = filter.categories.contains(c);
-              return FilterChip(
-                showCheckmark: true,
-                label: Text(
-                  c.replaceAll('-', ' ').toLowerCase(),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: selected
-                        ? theme.colorScheme.onPrimary
-                        : theme.colorScheme.onSurface,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHigh,
+              border: Border(
+                bottom: BorderSide(color: theme.colorScheme.outlineVariant, width: 1),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.filter_list, size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('Categories in period', style: theme.textTheme.labelLarge),
+                const Spacer(),
+                Text(
+                  allSelected ? 'All' : '${filter.categories.length} selected',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
-                selected: selected,
-                onSelected: (_) =>
-                    ref.read(filterProvider.notifier).toggleCategory(c),
-                selectedColor: theme.colorScheme.primary,
-                checkmarkColor: theme.colorScheme.onPrimary,
-                side: BorderSide(color: theme.colorScheme.primary, width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              );
-            }).toList(),
+              ],
+            ),
           ),
+          CheckboxListTile(
+            dense: true,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+            value: allSelected,
+            title: const Text('All categories',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            onChanged: (_) => ref.read(filterProvider.notifier).setCategories([]),
+          ),
+          const Divider(height: 1),
+          if (_categories.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No categories in this period',
+                  style: TextStyle(fontSize: 12)),
+            )
+          else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 280),
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: _categories.length,
+                itemBuilder: (context, i) {
+                  final c = _categories[i];
+                  final selected = filter.categories.contains(c);
+                  return CheckboxListTile(
+                    dense: true,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    value: selected,
+                    title: Text(
+                      c.replaceAll('-', ' ').toLowerCase(),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                    onChanged: (_) =>
+                        ref.read(filterProvider.notifier).toggleCategory(c),
+                  );
+                },
+              ),
+            ),
         ],
       ),
     );
