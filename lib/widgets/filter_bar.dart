@@ -15,7 +15,13 @@ class _FilterBarState extends ConsumerState<FilterBar> {
   final _db = DatabaseService();
 
   List<String> _categories = [];
+  List<String> _years = [];
   bool _catExpanded = false;
+
+  static const _monthNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
 
   @override
   void initState() {
@@ -26,8 +32,95 @@ class _FilterBarState extends ConsumerState<FilterBar> {
   Future<void> _loadOptions() async {
     try {
       final cats = await _db.getCategories();
-      if (mounted) setState(() => _categories = cats);
+      final years = await _db.getYears();
+      if (mounted) {
+        setState(() {
+          _categories = cats;
+          _years = years;
+        });
+      }
     } catch (_) {}
+  }
+
+  Future<void> _pickMonth(BuildContext context) async {
+    if (_years.isEmpty) return;
+    String selectedYear = _years.first;
+
+    final result = await showDialog<({String year, int month})>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            final theme = Theme.of(ctx);
+            return AlertDialog(
+              icon: const Icon(Icons.calendar_month),
+              title: const Text('Select Month'),
+              content: SizedBox(
+                width: 320,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownMenu<String>(
+                      initialSelection: selectedYear,
+                      expandedInsets: EdgeInsets.zero,
+                      label: const Text('Year'),
+                      dropdownMenuEntries: _years
+                          .map((y) => DropdownMenuEntry(value: y, label: y))
+                          .toList(),
+                      onSelected: (v) {
+                        if (v != null) setLocal(() => selectedYear = v);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.count(
+                      crossAxisCount: 4,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                      childAspectRatio: 2.0,
+                      children: List.generate(12, (i) {
+                        return OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            side: BorderSide(
+                                color: theme.colorScheme.primary, width: 1.5),
+                            shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.zero),
+                          ),
+                          onPressed: () => Navigator.pop(
+                              ctx, (year: selectedYear, month: i + 1)),
+                          child: Text(
+                            _monthNames[i],
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w700),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result != null) {
+      final mm = result.month.toString().padLeft(2, '0');
+      final lastDay = DateTime(int.parse(result.year), result.month + 1, 0).day;
+      final start = '${result.year}-$mm-01';
+      final end = '${result.year}-$mm-${lastDay.toString().padLeft(2, '0')}';
+      ref.read(filterProvider.notifier).setPeriod(startDate: start, endDate: end);
+    }
   }
 
   Future<void> _pickDate(BuildContext context, bool isStart) async {
@@ -107,6 +200,8 @@ class _FilterBarState extends ConsumerState<FilterBar> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              _MonthButton(onTap: () => _pickMonth(context)),
+              const SizedBox(width: 8),
               Expanded(
                 child: _DateButton(
                   label: 'Start',
@@ -264,6 +359,43 @@ class _FilterBarState extends ConsumerState<FilterBar> {
                   ),
                 );
               }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MonthButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _MonthButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.colorScheme.primary, width: 2),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.calendar_month, size: 14, color: theme.colorScheme.onSurface),
+            const SizedBox(width: 6),
+            Text(
+              'Month',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
           ],
         ),
