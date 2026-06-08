@@ -74,7 +74,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         _db.getTotalCredits(filter: f),
         _db.getTransactionCount(filter: f),
         _db.getSpendByCategory(filter: f),
-        _db.getExpenses(limit: 500, filter: f),
+        _db.getExpenses(filter: f),
       ]);
 
       setState(() {
@@ -176,7 +176,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
           const Spacer(),
           InkWell(
-            onTap: () => ref.read(filterProvider.notifier).setPeriod(startDate: null, endDate: null),
+            onTap: () => ref.read(filterProvider.notifier).setRange(null, null),
             child: Padding(
               padding: const EdgeInsets.all(4),
               child: Icon(Icons.close, size: 18, color: theme.colorScheme.onPrimaryContainer),
@@ -289,11 +289,35 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             },
           ),
         ),
-        const Divider(height: 1),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          color: theme.colorScheme.surfaceContainerLow,
+          child: Text(
+            '${_filteredTx(_searchCtrl.text).length} transactions',
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
         Expanded(child: _buildTransactionTable(theme)),
       ],
     );
   }
+
+  // Column layout shared by the header and data rows so they stay aligned.
+  static const _columns = <(String, double, TextAlign)>[
+    ('#', 52, TextAlign.left),
+    ('DATE', 104, TextAlign.left),
+    ('DESCRIPTION', 320, TextAlign.left),
+    ('BANK', 96, TextAlign.left),
+    ('AMOUNT', 112, TextAlign.right),
+    ('CATEGORY', 150, TextAlign.left),
+  ];
+
+  double get _tableWidth =>
+      _columns.fold(0.0, (sum, c) => sum + c.$2) + 24;
 
   Widget _buildTransactionTable(ThemeData theme) {
     final list = _filteredTx(_searchCtrl.text);
@@ -314,53 +338,92 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: SingleChildScrollView(
         controller: _scrollCtrl,
         scrollDirection: Axis.horizontal,
-        child: DataTable(
-          columnSpacing: 0,
-          headingRowHeight: 40,
-          dataRowMinHeight: 32,
-          dataRowMaxHeight: 40,
-          horizontalMargin: 8,
-          border: TableBorder(
-            horizontalInside: BorderSide(color: theme.dividerColor, width: 0.5),
+        child: SizedBox(
+          width: _tableWidth,
+          child: Column(
+            children: [
+              _tableHeader(theme),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: list.length,
+                  itemExtent: 40,
+                  itemBuilder: (context, i) => _tableRow(theme, list[i], i),
+                ),
+              ),
+            ],
           ),
-          columns: [
-            _col('#', 40),
-            _col('DATE', 96),
-            _col('TXN DESCRIPTION', 300),
-            _col('BANK', 80),
-            _col('AMOUNT', 90),
-            _col('CATEGORY', 120),
-          ],
-          rows: List.generate(list.length, (i) {
-            final tx = list[i];
-            final amount = tx.debit > 0 ? -tx.debit : tx.credit;
-            return DataRow(
-              color: WidgetStateProperty.resolveWith((_) {
-                if (i.isOdd) return theme.colorScheme.surfaceContainerLow;
-                return null;
-              }),
-              cells: [
-                _cell('${i + 1}', 40),
-                _cell(tx.date, 96),
-                _cell(tx.description, 300),
-                _cell(tx.source, 80),
-                DataCell(SizedBox(
-                  width: 90,
-                  child: Text(
-                    NumberFormat.currency(symbol: '\$', decimalDigits: 2).format(amount),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: tx.debit > 0 ? theme.colorScheme.error : Colors.green.shade700,
-                    ),
-                    textAlign: TextAlign.right,
-                  ),
-                )),
-                _cell(tx.category.replaceAll('-', ' ').toLowerCase(), 120),
-              ],
-            );
-          }),
         ),
+      ),
+    );
+  }
+
+  Widget _tableHeader(ThemeData theme) {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary,
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.outline, width: 2),
+        ),
+      ),
+      child: Row(
+        children: _columns.map((c) {
+          return SizedBox(
+            width: c.$2,
+            child: Text(
+              c.$1,
+              textAlign: c.$3,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+                letterSpacing: 0.5,
+                color: theme.colorScheme.onPrimary,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _tableRow(ThemeData theme, Expense tx, int i) {
+    final amount = tx.debit > 0 ? -tx.debit : tx.credit;
+    final values = <String>[
+      '${i + 1}',
+      tx.date,
+      tx.description,
+      tx.source,
+      NumberFormat.currency(symbol: '\$', decimalDigits: 2).format(amount),
+      tx.category.replaceAll('-', ' ').toLowerCase(),
+    ];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: i.isOdd ? theme.colorScheme.surfaceContainerLow : null,
+        border: Border(
+          bottom: BorderSide(color: theme.dividerColor, width: 0.5),
+        ),
+      ),
+      child: Row(
+        children: List.generate(_columns.length, (c) {
+          final isAmount = c == 4;
+          return SizedBox(
+            width: _columns[c].$2,
+            child: Text(
+              values[c],
+              textAlign: _columns[c].$3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isAmount ? FontWeight.w700 : FontWeight.w500,
+                color: isAmount
+                    ? (tx.debit > 0 ? theme.colorScheme.error : Colors.green.shade700)
+                    : theme.colorScheme.onSurface,
+              ),
+            ),
+          );
+        }),
       ),
     );
   }
@@ -628,27 +691,49 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card.filled(
+    final ink = theme.colorScheme.onSurface;
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: ink, width: 2.5),
+        boxShadow: [
+          BoxShadow(color: ink, offset: const Offset(4, 4), blurRadius: 0),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
+                color: color.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: color, width: 1.5),
               ),
               child: Icon(icon, color: color, size: 18),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Text(
               value,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 2),
-            Text(title, style: theme.textTheme.bodySmall),
+            Text(
+              title.toUpperCase(),
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),

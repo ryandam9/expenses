@@ -14,11 +14,12 @@ class AppTheme {
   });
 }
 
-const _black = Color(0xFF1A1A1A);
-const _white = Color(0xFFF5F0E8);
-const _neoBg = Color(0xFFF5F0E8);
-const _neoRed = Color(0xFFE53935);
-const _neoBlue = Color(0xFF1E88E5);
+const _black = Color(0xFF111111);
+const _white = Color(0xFFFFFDF5);
+const _neoBg = Color(0xFFFDF4DD);
+const _neoYellow = Color(0xFFFECA00);
+const _neoRed = Color(0xFFCB0300);
+const _neoBlue = Color(0xFF06ABDF);
 
 ThemeData _neoBrutalismLight() {
   return ThemeData(
@@ -30,8 +31,12 @@ ThemeData _neoBrutalismLight() {
       onPrimary: _white,
       secondary: _neoRed,
       onSecondary: _white,
+      secondaryContainer: _neoYellow,
+      onSecondaryContainer: _black,
       tertiary: _neoBlue,
-      onTertiary: _white,
+      onTertiary: _black,
+      primaryContainer: _neoYellow,
+      onPrimaryContainer: _black,
       error: _neoRed,
       onError: _white,
       surface: _white,
@@ -65,8 +70,12 @@ ThemeData _neoBrutalismLight() {
       space: 0,
     ),
     navigationRailTheme: NavigationRailThemeData(
-      backgroundColor: Colors.white,
-      indicatorColor: _black.withValues(alpha: 0.1),
+      backgroundColor: _neoBg,
+      indicatorColor: _neoYellow,
+      indicatorShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: _black, width: 2),
+      ),
       labelType: NavigationRailLabelType.all,
       unselectedLabelTextStyle: const TextStyle(
         fontWeight: FontWeight.w600,
