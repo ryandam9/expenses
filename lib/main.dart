@@ -2,19 +2,33 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'screens/main_shell.dart';
 import 'theme/app_themes.dart';
+import 'services/database_service.dart';
 import 'providers/theme_provider.dart';
 import 'providers/font_provider.dart';
+import 'providers/prefs_provider.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   if (!kIsWeb) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: ExpensesApp()));
+  final prefs = await SharedPreferences.getInstance();
+  // Apply the saved data-source path before the first query runs.
+  final savedPath = prefs.getString('dbPath');
+  if (savedPath != null && savedPath.isNotEmpty) {
+    DatabaseService.overridePath = savedPath;
+  }
+  runApp(
+    ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: const ExpensesApp(),
+    ),
+  );
 }
 
 class ExpensesApp extends ConsumerWidget {

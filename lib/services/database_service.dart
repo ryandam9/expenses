@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import '../models/expense.dart';
 import '../models/app_filter.dart';
+import 'query_builder.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._();
@@ -10,8 +11,14 @@ class DatabaseService {
 
   Database? _db;
 
-  static const _dbPath =
+  static const defaultDbPath =
       '/home/ravi/Desktop/temp/statements/output/expenses.db';
+
+  /// The path the database is opened from. Set at startup from saved settings
+  /// and changed at runtime via [reopen]; falls back to [defaultDbPath].
+  static String? overridePath;
+
+  String get currentPath => overridePath ?? defaultDbPath;
 
   Future<Database> get database async {
     if (_db != null) return _db!;
@@ -20,44 +27,28 @@ class DatabaseService {
   }
 
   Future<Database> _initDb() async {
-    final file = File(_dbPath);
+    final path = currentPath;
+    final file = File(path);
     final exists = await file.exists();
     if (!exists) {
-      throw Exception('Database not found at $_dbPath');
+      throw Exception('Database not found at $path');
     }
-    return await openDatabase(_dbPath);
+    return await openDatabase(path);
   }
 
-  // Transfers between a user's own accounts aren't real income or spending,
-  // so this category is excluded from every query, app-wide.
-  static const _excludeTransfers = "UPPER(category) <> 'TRANSFERS'";
-
-  String? _whereClause(AppFilter f) {
-    final clauses = <String>[_excludeTransfers];
-    if (f.startDate != null) {
-      clauses.add('date >= ?');
-    }
-    if (f.endDate != null) {
-      clauses.add('date <= ?');
-    }
-    if (!f.allCategories) {
-      if (f.categories.isEmpty) {
-        // Explicit "none selected" -> match no rows.
-        clauses.add('1 = 0');
-      } else {
-        clauses.add('category IN (${f.categories.map((_) => '?').join(', ')})');
-      }
-    }
-    return clauses.join(' AND ');
+  /// Points the service at a new database file and drops the open connection so
+  /// the next query reopens against [path].
+  Future<void> reopen(String path) async {
+    overridePath = path.trim().isEmpty ? null : path.trim();
+    await _db?.close();
+    _db = null;
   }
 
-  List<String> _whereArgs(AppFilter f) {
-    final args = <String>[];
-    if (f.startDate != null) args.add(f.startDate!);
-    if (f.endDate != null) args.add(f.endDate!);
-    if (!f.allCategories && f.categories.isNotEmpty) args.addAll(f.categories);
-    return args;
-  }
+  // Delegates to the pure, unit-tested builder in query_builder.dart. The
+  // clause always excludes the TRANSFERS category.
+  String? _whereClause(AppFilter f) => buildWhere(f).clause;
+
+  List<String> _whereArgs(AppFilter f) => buildWhere(f).args;
 
   Future<List<Expense>> getExpenses(
       {int? limit, int? offset, AppFilter? filter}) async {
@@ -186,7 +177,7 @@ class DatabaseService {
   Future<List<String>> getCategories() async {
     final db = await database;
     final rows = await db.rawQuery(
-        'SELECT DISTINCT category FROM expenses WHERE $_excludeTransfers ORDER BY category');
+        'SELECT DISTINCT category FROM expenses WHERE $excludeTransfersClause ORDER BY category');
     return rows.map((r) => r['category'] as String).toList();
   }
 
@@ -196,7 +187,7 @@ class DatabaseService {
   Future<List<String>> getCategoriesForPeriod({AppFilter? filter}) async {
     final db = await database;
     final f = filter ?? const AppFilter();
-    final clauses = <String>[_excludeTransfers];
+    final clauses = <String>[excludeTransfersClause];
     final args = <String>[];
     if (f.startDate != null) {
       clauses.add('date >= ?');

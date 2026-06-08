@@ -1,17 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'prefs_provider.dart';
 
 class FontFamilyNotifier extends Notifier<String> {
   @override
-  String build() => 'Inter';
+  String build() =>
+      ref.read(sharedPreferencesProvider).getString('fontFamily') ?? 'Inter';
 
-  void select(String family) => state = family;
+  void select(String family) {
+    state = family;
+    ref.read(sharedPreferencesProvider).setString('fontFamily', family);
+  }
 }
 
 class FontSizeNotifier extends Notifier<double> {
   @override
-  double build() => 13;
+  double build() =>
+      ref.read(sharedPreferencesProvider).getDouble('fontSize') ?? 13;
 
-  void setSize(double size) => state = size;
+  void setSize(double size) {
+    state = size;
+    ref.read(sharedPreferencesProvider).setDouble('fontSize', size);
+  }
 }
 
 final fontFamilyProvider = NotifierProvider<FontFamilyNotifier, String>(FontFamilyNotifier.new);

@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_themes.dart';
+import '../services/database_service.dart';
 import '../providers/theme_provider.dart';
 import '../providers/font_provider.dart';
+import '../providers/prefs_provider.dart';
+import '../widgets/db_path_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -36,6 +39,13 @@ class SettingsScreen extends ConsumerWidget {
                     const _ThemeGrid(),
                   ],
                 ),
+              ),
+              const SizedBox(height: 20),
+              _Section(
+                icon: Icons.storage_rounded,
+                title: 'Data source',
+                theme: theme,
+                child: const _DataSourceControls(),
               ),
               const SizedBox(height: 20),
               _Section(
@@ -215,6 +225,69 @@ class _ThemeCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// -------------------------------------------------------------- data source
+class _DataSourceControls extends ConsumerWidget {
+  const _DataSourceControls();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    // Rebuild when the path changes.
+    ref.watch(dbPathProvider);
+    final path = DatabaseService().currentPath;
+    final isDefault = DatabaseService.overridePath == null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Database file',
+            style: theme.textTheme.titleSmall
+                ?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: cs.outlineVariant),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.description_outlined,
+                  size: 18, color: cs.onSurfaceVariant),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SelectableText(
+                  path,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+              if (isDefault)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text('default',
+                      style: theme.textTheme.labelSmall
+                          ?.copyWith(color: cs.onSurfaceVariant)),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.tonalIcon(
+            onPressed: () => showDbPathDialog(context, ref),
+            icon: const Icon(Icons.edit_location_alt_outlined, size: 18),
+            label: const Text('Change data source'),
+          ),
+        ),
+      ],
     );
   }
 }
