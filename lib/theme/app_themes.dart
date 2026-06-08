@@ -42,237 +42,279 @@ List<Color> buildChartColors(List<Color> base, int count) {
   return out;
 }
 
-const _black = Color(0xFF111111);
-const _white = Color(0xFFFFFDF5);
-const _neoBg = Color(0xFFFDF4DD);
-const _neoYellow = Color(0xFFFECA00);
-const _neoRed = Color(0xFFCB0300);
-const _neoBlue = Color(0xFF06ABDF);
+// --- Studio: the default, hand-tuned theme ----------------------------------
+//
+// A calm, modern dashboard look built on standard Material 3. The accent is a
+// muted indigo; surfaces are clean white cards floating over a cool, barely
+// tinted background. Corners are generously rounded, borders are hairline, and
+// shadows are soft and low — the opposite of the old brutalist look. Designed
+// so financial data reads clearly without the chrome competing for attention.
+const _studioIndigo = Color(0xFF4F5BD5); // primary accent
+const _studioInk = Color(0xFF1B1C2A); // near-black text
+const _studioBg = Color(0xFFF4F5FA); // cool off-white canvas
+const _studioBorder = Color(0xFFE6E8F0); // hairline card border
 
-ThemeData _neoBrutalismLight() {
+ThemeData _studioLight() {
+  final scheme = ColorScheme.fromSeed(
+    seedColor: _studioIndigo,
+    brightness: Brightness.light,
+  ).copyWith(
+    primary: _studioIndigo,
+    onSurface: _studioInk,
+    surface: Colors.white,
+    surfaceContainerLowest: Colors.white,
+    surfaceContainerLow: _studioBg,
+    surfaceContainerHigh: const Color(0xFFEFF1F8),
+    outline: const Color(0xFFC9CCDA),
+    outlineVariant: _studioBorder,
+  );
+
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
-    colorScheme: ColorScheme(
-      brightness: Brightness.light,
-      primary: _black,
-      onPrimary: _white,
-      secondary: _neoRed,
-      onSecondary: _white,
-      secondaryContainer: _neoYellow,
-      onSecondaryContainer: _black,
-      tertiary: _neoBlue,
-      onTertiary: _black,
-      primaryContainer: _neoYellow,
-      onPrimaryContainer: _black,
-      error: _neoRed,
-      onError: _white,
-      surface: _white,
-      onSurface: _black,
-      surfaceContainerLowest: const Color(0xFFFFFFFF),
-      surfaceContainerLow: const Color(0xFFF8F6F2),
-      surfaceContainerHigh: const Color(0xFFEDE8E0),
-      outline: _black.withValues(alpha: 0.3),
-      outlineVariant: _black.withValues(alpha: 0.15),
-    ),
-    scaffoldBackgroundColor: _neoBg,
+    colorScheme: scheme,
+    scaffoldBackgroundColor: _studioBg,
     cardTheme: CardThemeData(
       elevation: 0,
       color: Colors.white,
-      shape: Border.all(color: _black, width: 2.5),
+      shadowColor: _studioInk.withValues(alpha: 0.06),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: _studioBorder, width: 1),
+      ),
       surfaceTintColor: Colors.transparent,
     ),
-    appBarTheme: AppBarThemeData(
+    appBarTheme: const AppBarThemeData(
       elevation: 0,
-      backgroundColor: _black,
-      foregroundColor: _white,
-      centerTitle: true,
-      titleTextStyle: const TextStyle(
-        fontWeight: FontWeight.w800,
-        fontSize: 18,
+      scrolledUnderElevation: 0,
+      backgroundColor: Colors.white,
+      foregroundColor: _studioInk,
+      surfaceTintColor: Colors.transparent,
+      centerTitle: false,
+      titleTextStyle: TextStyle(
+        fontWeight: FontWeight.w700,
+        fontSize: 19,
+        color: _studioInk,
+        letterSpacing: -0.2,
       ),
     ),
-    dividerTheme: DividerThemeData(
-      color: _black.withValues(alpha: 0.3),
-      thickness: 1.5,
-      space: 0,
+    dividerTheme: const DividerThemeData(
+      color: _studioBorder,
+      thickness: 1,
+      space: 1,
     ),
     navigationRailTheme: NavigationRailThemeData(
-      backgroundColor: _neoBg,
-      indicatorColor: _neoYellow,
+      backgroundColor: Colors.white,
+      indicatorColor: _studioIndigo.withValues(alpha: 0.12),
       indicatorShape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: _black, width: 2),
+        borderRadius: BorderRadius.circular(12),
       ),
       labelType: NavigationRailLabelType.all,
-      unselectedLabelTextStyle: const TextStyle(
-        fontWeight: FontWeight.w600,
+      unselectedLabelTextStyle: TextStyle(
+        fontWeight: FontWeight.w500,
         fontSize: 11,
-        color: _black,
+        color: _studioInk.withValues(alpha: 0.55),
       ),
       selectedLabelTextStyle: const TextStyle(
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
         fontSize: 11,
-        color: _black,
+        color: _studioIndigo,
       ),
-      unselectedIconTheme: const IconThemeData(color: _black, size: 22),
-      selectedIconTheme: const IconThemeData(color: _black, size: 26),
+      unselectedIconTheme: IconThemeData(
+        color: _studioInk.withValues(alpha: 0.55),
+        size: 22,
+      ),
+      selectedIconTheme: const IconThemeData(color: _studioIndigo, size: 24),
     ),
     textTheme: const TextTheme(
-      titleLarge: TextStyle(fontWeight: FontWeight.w800, fontSize: 20, color: _black),
-      titleMedium: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: _black),
-      titleSmall: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: _black),
-      bodyLarge: TextStyle(fontWeight: FontWeight.w500, color: _black),
-      bodyMedium: TextStyle(fontWeight: FontWeight.w500, color: _black),
-      bodySmall: TextStyle(fontWeight: FontWeight.w500, color: _black),
-      labelLarge: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: _black),
-      labelSmall: TextStyle(fontWeight: FontWeight.w500, color: _black),
+      titleLarge: TextStyle(fontWeight: FontWeight.w700, fontSize: 20, color: _studioInk, letterSpacing: -0.3),
+      titleMedium: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: _studioInk, letterSpacing: -0.1),
+      titleSmall: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: _studioInk),
+      bodyLarge: TextStyle(fontWeight: FontWeight.w400, color: _studioInk),
+      bodyMedium: TextStyle(fontWeight: FontWeight.w400, color: _studioInk),
+      bodySmall: TextStyle(fontWeight: FontWeight.w400, color: Color(0xFF5B5D6E)),
+      labelLarge: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: _studioInk),
+      labelSmall: TextStyle(fontWeight: FontWeight.w500, color: _studioInk),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
+      fillColor: _studioBg,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _black, width: 2.5),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _studioBorder, width: 1),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _black, width: 2.5),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _studioBorder, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _neoBlue, width: 2.5),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _studioIndigo, width: 1.5),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       isDense: true,
-      labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: _black),
+      labelStyle: TextStyle(
+        fontWeight: FontWeight.w500,
+        fontSize: 12,
+        color: _studioInk.withValues(alpha: 0.7),
+      ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: _black,
-        foregroundColor: _white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        elevation: 4,
-        shadowColor: _black,
-        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        backgroundColor: _studioIndigo,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       ),
     ),
     chipTheme: ChipThemeData(
-      backgroundColor: Colors.white,
-      side: const BorderSide(color: _black, width: 2),
-      labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: _black),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      backgroundColor: _studioBg,
+      side: const BorderSide(color: _studioBorder, width: 1),
+      labelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12, color: _studioInk),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ),
-    dividerColor: _black.withValues(alpha: 0.2),
+    dividerColor: _studioBorder,
     searchBarTheme: SearchBarThemeData(
       elevation: WidgetStateProperty.all(0),
-      backgroundColor: WidgetStateProperty.all(Colors.white),
+      backgroundColor: WidgetStateProperty.all(_studioBg),
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: _black, width: 2.5),
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: _studioBorder, width: 1),
         ),
       ),
     ),
     searchViewTheme: SearchViewThemeData(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: _black, width: 2),
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: _studioBorder, width: 1),
       ),
     ),
   );
 }
 
-ThemeData _neoBrutalismDark() {
-  return _neoBrutalismLight().copyWith(
+ThemeData _studioDark() {
+  const darkBg = Color(0xFF14151C);
+  const darkSurface = Color(0xFF1D1F29);
+  const darkBorder = Color(0xFF2C2F3C);
+  const darkText = Color(0xFFE8E9F0);
+  const accent = Color(0xFF8B95F2);
+
+  final scheme = ColorScheme.fromSeed(
+    seedColor: _studioIndigo,
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: _black,
-    colorScheme: ColorScheme(
-      brightness: Brightness.dark,
-      primary: _white,
-      onPrimary: _black,
-      secondary: _neoRed,
-      onSecondary: _white,
-      tertiary: _neoBlue,
-      onTertiary: _white,
-      error: _neoRed,
-      onError: _white,
-      surface: _black,
-      onSurface: _white,
-      surfaceContainerLowest: const Color(0xFF0A0A0A),
-      surfaceContainerLow: const Color(0xFF1F1F1F),
-      surfaceContainerHigh: const Color(0xFF2A2A2A),
-      outline: Colors.white.withValues(alpha: 0.3),
-      outlineVariant: Colors.white.withValues(alpha: 0.15),
-    ),
-    appBarTheme: AppBarThemeData(
-      elevation: 0,
-      backgroundColor: Colors.white,
-      foregroundColor: _black,
-      centerTitle: true,
-    ),
+  ).copyWith(
+    primary: accent,
+    onPrimary: const Color(0xFF111219),
+    onSurface: darkText,
+    surface: darkSurface,
+    surfaceContainerLowest: darkBg,
+    surfaceContainerLow: darkSurface,
+    surfaceContainerHigh: const Color(0xFF252835),
+    outline: const Color(0xFF3A3D4C),
+    outlineVariant: darkBorder,
+  );
+
+  return ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    colorScheme: scheme,
+    scaffoldBackgroundColor: darkBg,
     cardTheme: CardThemeData(
       elevation: 0,
-      color: const Color(0xFF2A2A2A),
-      shape: Border.all(color: Colors.white, width: 2.5),
+      color: darkSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: darkBorder, width: 1),
+      ),
       surfaceTintColor: Colors.transparent,
     ),
+    appBarTheme: const AppBarThemeData(
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      backgroundColor: darkBg,
+      foregroundColor: darkText,
+      surfaceTintColor: Colors.transparent,
+      centerTitle: false,
+      titleTextStyle: TextStyle(
+        fontWeight: FontWeight.w700,
+        fontSize: 19,
+        color: darkText,
+        letterSpacing: -0.2,
+      ),
+    ),
+    dividerTheme: const DividerThemeData(color: darkBorder, thickness: 1, space: 1),
     navigationRailTheme: NavigationRailThemeData(
-      backgroundColor: const Color(0xFF1A1A1A),
-      indicatorColor: Colors.white.withValues(alpha: 0.15),
-      unselectedLabelTextStyle: const TextStyle(
-        fontWeight: FontWeight.w600,
+      backgroundColor: darkSurface,
+      indicatorColor: accent.withValues(alpha: 0.18),
+      indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      labelType: NavigationRailLabelType.all,
+      unselectedLabelTextStyle: TextStyle(
+        fontWeight: FontWeight.w500,
         fontSize: 11,
-        color: Colors.white70,
+        color: darkText.withValues(alpha: 0.55),
       ),
-      selectedLabelTextStyle: const TextStyle(
-        fontWeight: FontWeight.w800,
-        fontSize: 11,
-        color: Colors.white,
-      ),
-      unselectedIconTheme: const IconThemeData(color: Colors.white70, size: 22),
-      selectedIconTheme: const IconThemeData(color: Colors.white, size: 26),
+      selectedLabelTextStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: accent),
+      unselectedIconTheme: IconThemeData(color: darkText.withValues(alpha: 0.55), size: 22),
+      selectedIconTheme: const IconThemeData(color: accent, size: 24),
+    ),
+    textTheme: const TextTheme(
+      titleLarge: TextStyle(fontWeight: FontWeight.w700, fontSize: 20, color: darkText, letterSpacing: -0.3),
+      titleMedium: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: darkText, letterSpacing: -0.1),
+      titleSmall: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: darkText),
+      bodyLarge: TextStyle(fontWeight: FontWeight.w400, color: darkText),
+      bodyMedium: TextStyle(fontWeight: FontWeight.w400, color: darkText),
+      bodySmall: TextStyle(fontWeight: FontWeight.w400, color: Color(0xFF9A9DB0)),
+      labelLarge: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: darkText),
+      labelSmall: TextStyle(fontWeight: FontWeight.w500, color: darkText),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: const Color(0xFF2A2A2A),
+      fillColor: const Color(0xFF252835),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.white54, width: 2.5),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: darkBorder, width: 1),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Colors.white54, width: 2.5),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: darkBorder, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: _neoBlue, width: 2.5),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: accent, width: 1.5),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       isDense: true,
-      labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.white),
+      labelStyle: TextStyle(fontWeight: FontWeight.w500, fontSize: 12, color: darkText.withValues(alpha: 0.7)),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: _black,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        elevation: 4,
-        shadowColor: Colors.white,
-        textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        backgroundColor: accent,
+        foregroundColor: const Color(0xFF111219),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 0,
+        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       ),
     ),
-    dividerColor: Colors.white.withValues(alpha: 0.2),
+    chipTheme: ChipThemeData(
+      backgroundColor: const Color(0xFF252835),
+      side: const BorderSide(color: darkBorder, width: 1),
+      labelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12, color: darkText),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ),
+    dividerColor: darkBorder,
     searchBarTheme: SearchBarThemeData(
       elevation: WidgetStateProperty.all(0),
-      backgroundColor: WidgetStateProperty.all(const Color(0xFF2A2A2A)),
+      backgroundColor: WidgetStateProperty.all(const Color(0xFF252835)),
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: Colors.white54, width: 2.5),
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: darkBorder, width: 1),
         ),
       ),
     ),
@@ -413,19 +455,19 @@ AppTheme _birdTheme({
 
 final appThemes = [
   AppTheme(
-    name: 'Neo Brutalism',
-    icon: Icons.bolt,
-    light: _neoBrutalismLight(),
-    dark: _neoBrutalismDark(),
+    name: 'Studio',
+    icon: Icons.dashboard_rounded,
+    light: _studioLight(),
+    dark: _studioDark(),
     palette: const [
-      _neoYellow,
-      _neoRed,
-      _neoBlue,
-      Color(0xFFD36328),
-      Color(0xFF6D8600),
-      Color(0xFFBD338F),
-      Color(0xFF007CBF),
-      _black,
+      _studioIndigo,
+      Color(0xFF2BB6A3), // teal
+      Color(0xFFF59E42), // amber
+      Color(0xFFE5689A), // rose
+      Color(0xFF6CACE4), // sky
+      Color(0xFF8B6FD6), // violet
+      Color(0xFF59C26B), // green
+      Color(0xFFE2645C), // coral
     ],
   ),
   _birdTheme(

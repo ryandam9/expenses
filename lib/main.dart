@@ -109,10 +109,10 @@ class ExpensesApp extends ConsumerWidget {
       // Backgrounds are always light, regardless of the OS appearance — the
       // feather palettes are tuned for a bright surface.
       themeMode: ThemeMode.light,
-      // Themes differ structurally (Neo Brutalism uses inheriting TextStyles
-      // while the palette themes use Material's non-inheriting defaults), so
-      // animating between them would crash in TextStyle.lerp. Swap instantly
-      // and remount the shell so no widget lerps text styles across themes.
+      // Themes differ structurally (Studio defines inheriting TextStyles while
+      // the palette themes use Material's non-inheriting defaults), so animating
+      // between them would crash in TextStyle.lerp. Swap instantly and remount
+      // the shell so no widget lerps text styles across themes.
       themeAnimationDuration: Duration.zero,
       home: MainShell(key: ValueKey(themeIndex)),
     );
