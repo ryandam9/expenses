@@ -235,22 +235,25 @@ class _TypographyControls extends ConsumerWidget {
         DropdownMenu<String>(
           initialSelection: font,
           expandedInsets: EdgeInsets.zero,
+          enableFilter: true,
+          requestFocusOnTap: true,
           label: const Text('Font family'),
           leadingIcon: const Icon(Icons.font_download_outlined, size: 18),
+          menuHeight: 360,
           dropdownMenuEntries: systemFonts.map((f) {
-            final preview = f == 'Google Sans'
-                ? GoogleFonts.googleSansTextTheme()
-                : f == 'Inter'
-                    ? GoogleFonts.interTextTheme()
-                    : f == 'Space Grotesk'
-                        ? GoogleFonts.spaceGroteskTextTheme()
-                        : f == 'JetBrains Mono'
-                            ? GoogleFonts.jetBrainsMonoTextTheme()
-                            : null;
+            // Render each option in its own font so the list previews itself.
+            TextStyle? style;
+            if (f != 'System Default') {
+              try {
+                style = GoogleFonts.getFont(f);
+              } catch (_) {
+                style = null;
+              }
+            }
             return DropdownMenuEntry(
               value: f,
               label: f,
-              labelWidget: Text(f, style: preview?.bodyMedium),
+              labelWidget: Text(f, style: style),
             );
           }).toList(),
           onSelected: (v) {

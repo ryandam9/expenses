@@ -28,8 +28,12 @@ class DatabaseService {
     return await openDatabase(_dbPath);
   }
 
+  // Transfers between a user's own accounts aren't real income or spending,
+  // so this category is excluded from every query, app-wide.
+  static const _excludeTransfers = "UPPER(category) <> 'TRANSFERS'";
+
   String? _whereClause(AppFilter f) {
-    final clauses = <String>[];
+    final clauses = <String>[_excludeTransfers];
     if (f.startDate != null) {
       clauses.add('date >= ?');
     }
@@ -44,7 +48,6 @@ class DatabaseService {
         clauses.add('category IN (${f.categories.map((_) => '?').join(', ')})');
       }
     }
-    if (clauses.isEmpty) return null;
     return clauses.join(' AND ');
   }
 
@@ -183,7 +186,7 @@ class DatabaseService {
   Future<List<String>> getCategories() async {
     final db = await database;
     final rows = await db.rawQuery(
-        'SELECT DISTINCT category FROM expenses ORDER BY category');
+        'SELECT DISTINCT category FROM expenses WHERE $_excludeTransfers ORDER BY category');
     return rows.map((r) => r['category'] as String).toList();
   }
 
@@ -193,7 +196,7 @@ class DatabaseService {
   Future<List<String>> getCategoriesForPeriod({AppFilter? filter}) async {
     final db = await database;
     final f = filter ?? const AppFilter();
-    final clauses = <String>[];
+    final clauses = <String>[_excludeTransfers];
     final args = <String>[];
     if (f.startDate != null) {
       clauses.add('date >= ?');
@@ -203,7 +206,7 @@ class DatabaseService {
       clauses.add('date <= ?');
       args.add(f.endDate!);
     }
-    final where = clauses.isEmpty ? '' : 'WHERE ${clauses.join(' AND ')}';
+    final where = 'WHERE ${clauses.join(' AND ')}';
     final rows = await db.rawQuery(
         'SELECT DISTINCT category FROM expenses $where ORDER BY category',
         args.isNotEmpty ? args : null);

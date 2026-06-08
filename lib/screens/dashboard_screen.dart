@@ -40,6 +40,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   String _sortKey = 'date';
   bool _sortAsc = false;
 
+  // Current per-column widths, seeded from the defaults in [_columns]. Drag the
+  // grips in the header to resize; double-tap a grip to restore the default.
+  late List<double> _colWidths;
+
   /// Chart colours drawn from the active theme's feather palette, so the
   /// visualisations share the rest of the app's colour identity instead of a
   /// generic, off-theme set.
@@ -52,6 +56,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _colWidths = [for (final c in _columns) c.$2];
     _loadData();
   }
 
@@ -862,8 +867,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // Horizontal gap rendered after each cell so columns don't touch.
   static const _cellGap = 18.0;
 
+  static const _minColWidth = 48.0;
+  static const _maxColWidth = 640.0;
+
   double get _tableWidth =>
-      _columns.fold(0.0, (s, c) => s + c.$2 + _cellGap) + 32;
+      _colWidths.fold(0.0, (s, w) => s + w + _cellGap) + 32;
+
+  void _resizeColumn(int i, double dx) {
+    setState(() {
+      _colWidths[i] =
+          (_colWidths[i] + dx).clamp(_minColWidth, _maxColWidth);
+    });
+  }
 
   List<Expense> _sortList(List<Expense> list) {
     final sorted = List<Expense>.from(list);
@@ -953,51 +968,78 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(color: theme.colorScheme.primary),
       child: Row(
-        children: _columns.map((c) {
-          final key = c.$4;
-          final active = key != null && key == _sortKey;
-          final isRight = c.$3 == TextAlign.right;
-          final label = Text(
-            c.$1,
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 11,
-              letterSpacing: 0.5,
-              color: active ? onPrimary : onPrimary.withValues(alpha: 0.85),
+        children: [
+          for (var i = 0; i < _columns.length; i++) ...[
+            _headerCell(theme, i, onPrimary),
+            _resizeHandle(i, onPrimary),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _headerCell(ThemeData theme, int i, Color onPrimary) {
+    final c = _columns[i];
+    final key = c.$4;
+    final active = key != null && key == _sortKey;
+    final isRight = c.$3 == TextAlign.right;
+    final label = Text(
+      c.$1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontWeight: FontWeight.w800,
+        fontSize: 11,
+        letterSpacing: 0.5,
+        color: active ? onPrimary : onPrimary.withValues(alpha: 0.85),
+      ),
+    );
+    final content = Row(
+      mainAxisSize: MainAxisSize.max,
+      mainAxisAlignment:
+          isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
+      children: [
+        Flexible(child: label),
+        if (key != null) ...[
+          const SizedBox(width: 2),
+          Icon(
+            active
+                ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward)
+                : Icons.unfold_more,
+            size: 13,
+            color: active ? onPrimary : onPrimary.withValues(alpha: 0.5),
+          ),
+        ],
+      ],
+    );
+    return SizedBox(
+      width: _colWidths[i],
+      child: key == null
+          ? content
+          : InkWell(onTap: () => _onSort(key), child: content),
+    );
+  }
+
+  // A draggable grip occupying the inter-column gap. Drag to resize the column
+  // to its left; double-tap to reset it to the default width.
+  Widget _resizeHandle(int i, Color onPrimary) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragUpdate: (d) => _resizeColumn(i, d.delta.dx),
+        onDoubleTap: () =>
+            setState(() => _colWidths[i] = _columns[i].$2),
+        child: SizedBox(
+          width: _cellGap,
+          height: double.infinity,
+          child: Center(
+            child: Container(
+              width: 1.5,
+              height: 16,
+              color: onPrimary.withValues(alpha: 0.3),
             ),
-          );
-          final content = Row(
-            mainAxisSize: MainAxisSize.max,
-            mainAxisAlignment:
-                isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
-            children: [
-              if (!isRight) Flexible(child: label),
-              if (isRight) Flexible(child: label),
-              if (key != null) ...[
-                const SizedBox(width: 2),
-                Icon(
-                  active
-                      ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward)
-                      : Icons.unfold_more,
-                  size: 13,
-                  color: active ? onPrimary : onPrimary.withValues(alpha: 0.5),
-                ),
-              ],
-            ],
-          );
-          return Padding(
-            padding: const EdgeInsets.only(right: _cellGap),
-            child: SizedBox(
-              width: c.$2,
-              child: key == null
-                  ? content
-                  : InkWell(
-                      onTap: () => _onSort(key),
-                      child: content,
-                    ),
-            ),
-          );
-        }).toList(),
+          ),
+        ),
       ),
     );
   }
@@ -1031,7 +1073,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           return Padding(
             padding: const EdgeInsets.only(right: _cellGap),
             child: SizedBox(
-              width: _columns[c].$2,
+              width: _colWidths[c],
               child: Text(
                 values[c],
                 textAlign: _columns[c].$3,
