@@ -107,7 +107,12 @@ class ExpensesApp extends ConsumerWidget {
       theme: themed,
       darkTheme: darkThemed,
       themeMode: ThemeMode.system,
-      home: const MainShell(),
+      // Themes differ structurally (Neo Brutalism uses inheriting TextStyles
+      // while the palette themes use Material's non-inheriting defaults), so
+      // animating between them would crash in TextStyle.lerp. Swap instantly
+      // and remount the shell so no widget lerps text styles across themes.
+      themeAnimationDuration: Duration.zero,
+      home: MainShell(key: ValueKey(themeIndex)),
     );
   }
 }
