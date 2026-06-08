@@ -182,6 +182,29 @@ class DatabaseService {
     return rows.map((r) => r['category'] as String).toList();
   }
 
+  /// Distinct categories that have transactions within the selected period.
+  /// Only the date bounds of [filter] are applied (category selection is
+  /// ignored, so the full set of options for the period is returned).
+  Future<List<String>> getCategoriesForPeriod({AppFilter? filter}) async {
+    final db = await database;
+    final f = filter ?? const AppFilter();
+    final clauses = <String>[];
+    final args = <String>[];
+    if (f.startDate != null) {
+      clauses.add('date >= ?');
+      args.add(f.startDate!);
+    }
+    if (f.endDate != null) {
+      clauses.add('date <= ?');
+      args.add(f.endDate!);
+    }
+    final where = clauses.isEmpty ? '' : 'WHERE ${clauses.join(' AND ')}';
+    final rows = await db.rawQuery(
+        'SELECT DISTINCT category FROM expenses $where ORDER BY category',
+        args.isNotEmpty ? args : null);
+    return rows.map((r) => r['category'] as String).toList();
+  }
+
   Future<List<String>> getSources() async {
     final db = await database;
     final rows = await db.rawQuery(
