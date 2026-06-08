@@ -35,6 +35,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _pageSize = 50;
   static const _pageSizeOptions = [25, 50, 100, 200];
 
+  String _sortKey = 'date';
+  bool _sortAsc = false;
+
   static const _chartColors = [
     Color(0xFFE57373), Color(0xFF64B5F6), Color(0xFF81C784), Color(0xFFFFD54F),
     Color(0xFFBA68C8), Color(0xFF4DB6AC), Color(0xFFFF8A65), Color(0xFFA1887F),
@@ -405,7 +408,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   // -------------------------------------------------------------- transactions
   Widget _buildTransactionsView(ThemeData theme) {
-    final all = _filtered;
+    final all = _sortList(_filtered);
     final total = all.length;
     final pageCount = total == 0 ? 1 : (total / _pageSize).ceil();
     if (_page >= pageCount) _page = pageCount - 1;
@@ -447,16 +450,62 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  static const _columns = <(String, double, TextAlign)>[
-    ('#', 56, TextAlign.left),
-    ('DATE', 108, TextAlign.left),
-    ('DESCRIPTION', 340, TextAlign.left),
-    ('BANK', 100, TextAlign.left),
-    ('AMOUNT', 120, TextAlign.right),
-    ('CATEGORY', 160, TextAlign.left),
+  // (label, width, alignment, sortKey?) — null sortKey = not sortable.
+  static const _columns = <(String, double, TextAlign, String?)>[
+    ('#', 56, TextAlign.left, null),
+    ('DATE', 108, TextAlign.left, 'date'),
+    ('DESCRIPTION', 340, TextAlign.left, 'description'),
+    ('BANK', 100, TextAlign.left, 'bank'),
+    ('AMOUNT', 130, TextAlign.right, 'amount'),
+    ('CATEGORY', 160, TextAlign.left, 'category'),
   ];
 
-  double get _tableWidth => _columns.fold(0.0, (s, c) => s + c.$2) + 32;
+  // Horizontal gap rendered after each cell so columns don't touch.
+  static const _cellGap = 18.0;
+
+  double get _tableWidth =>
+      _columns.fold(0.0, (s, c) => s + c.$2 + _cellGap) + 32;
+
+  List<Expense> _sortList(List<Expense> list) {
+    final sorted = List<Expense>.from(list);
+    double amt(Expense e) => e.debit > 0 ? -e.debit : e.credit;
+    int cmp(Expense a, Expense b) {
+      int r;
+      switch (_sortKey) {
+        case 'description':
+          r = a.description.toLowerCase().compareTo(b.description.toLowerCase());
+          break;
+        case 'bank':
+          r = a.source.toLowerCase().compareTo(b.source.toLowerCase());
+          break;
+        case 'category':
+          r = a.category.toLowerCase().compareTo(b.category.toLowerCase());
+          break;
+        case 'amount':
+          r = amt(a).compareTo(amt(b));
+          break;
+        case 'date':
+        default:
+          r = a.date.compareTo(b.date);
+      }
+      return _sortAsc ? r : -r;
+    }
+
+    sorted.sort(cmp);
+    return sorted;
+  }
+
+  void _onSort(String key) {
+    setState(() {
+      if (_sortKey == key) {
+        _sortAsc = !_sortAsc;
+      } else {
+        _sortKey = key;
+        _sortAsc = true;
+      }
+      _page = 0;
+    });
+  }
 
   Widget _buildTable(ThemeData theme, List<Expense> list, int startIndex) {
     if (list.isEmpty) {
@@ -498,23 +547,57 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _tableHeader(ThemeData theme) {
+    final onPrimary = theme.colorScheme.onPrimary;
     return Container(
       height: 42,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(color: theme.colorScheme.primary),
       child: Row(
-        children: _columns
-            .map((c) => SizedBox(
-                  width: c.$2,
-                  child: Text(c.$1,
-                      textAlign: c.$3,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                          letterSpacing: 0.5,
-                          color: theme.colorScheme.onPrimary)),
-                ))
-            .toList(),
+        children: _columns.map((c) {
+          final key = c.$4;
+          final active = key != null && key == _sortKey;
+          final isRight = c.$3 == TextAlign.right;
+          final label = Text(
+            c.$1,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
+              letterSpacing: 0.5,
+              color: active ? onPrimary : onPrimary.withValues(alpha: 0.85),
+            ),
+          );
+          final content = Row(
+            mainAxisSize: MainAxisSize.max,
+            mainAxisAlignment:
+                isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
+            children: [
+              if (!isRight) Flexible(child: label),
+              if (isRight) Flexible(child: label),
+              if (key != null) ...[
+                const SizedBox(width: 2),
+                Icon(
+                  active
+                      ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward)
+                      : Icons.unfold_more,
+                  size: 13,
+                  color: active ? onPrimary : onPrimary.withValues(alpha: 0.5),
+                ),
+              ],
+            ],
+          );
+          return Padding(
+            padding: const EdgeInsets.only(right: _cellGap),
+            child: SizedBox(
+              width: c.$2,
+              child: key == null
+                  ? content
+                  : InkWell(
+                      onTap: () => _onSort(key),
+                      child: content,
+                    ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -541,18 +624,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: Row(
         children: List.generate(_columns.length, (c) {
           final isAmount = c == 4;
-          return SizedBox(
-            width: _columns[c].$2,
-            child: Text(
-              values[c],
-              textAlign: _columns[c].$3,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: isAmount ? FontWeight.w800 : FontWeight.w500,
-                color: isAmount
-                    ? (isDebit ? theme.colorScheme.error : Colors.green.shade700)
-                    : theme.colorScheme.onSurface,
+          return Padding(
+            padding: const EdgeInsets.only(right: _cellGap),
+            child: SizedBox(
+              width: _columns[c].$2,
+              child: Text(
+                values[c],
+                textAlign: _columns[c].$3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: isAmount ? FontWeight.w800 : FontWeight.w500,
+                  color: isAmount
+                      ? (isDebit
+                          ? theme.colorScheme.error
+                          : Colors.green.shade700)
+                      : theme.colorScheme.onSurface,
+                ),
               ),
             ),
           );

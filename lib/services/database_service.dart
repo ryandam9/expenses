@@ -36,8 +36,13 @@ class DatabaseService {
     if (f.endDate != null) {
       clauses.add('date <= ?');
     }
-    if (f.categories.isNotEmpty) {
-      clauses.add('category IN (${f.categories.map((_) => '?').join(', ')})');
+    if (!f.allCategories) {
+      if (f.categories.isEmpty) {
+        // Explicit "none selected" -> match no rows.
+        clauses.add('1 = 0');
+      } else {
+        clauses.add('category IN (${f.categories.map((_) => '?').join(', ')})');
+      }
     }
     if (clauses.isEmpty) return null;
     return clauses.join(' AND ');
@@ -47,7 +52,7 @@ class DatabaseService {
     final args = <String>[];
     if (f.startDate != null) args.add(f.startDate!);
     if (f.endDate != null) args.add(f.endDate!);
-    if (f.categories.isNotEmpty) args.addAll(f.categories);
+    if (!f.allCategories && f.categories.isNotEmpty) args.addAll(f.categories);
     return args;
   }
 
