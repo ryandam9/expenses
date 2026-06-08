@@ -6,12 +6,40 @@ class AppTheme {
   final ThemeData? dark;
   final IconData icon;
 
+  /// The raw feather palette behind this theme. Used to colour charts and
+  /// accents so visualisations share the theme's identity instead of a
+  /// generic, off-theme set of colours.
+  final List<Color> palette;
+
   const AppTheme({
     required this.name,
     required this.light,
     this.dark,
     required this.icon,
+    this.palette = const [],
   });
+}
+
+/// Builds [count] distinct, on-theme colours from a [base] palette. The base
+/// colours are used first; when more are needed than the palette provides,
+/// progressively lighter tints are generated so neighbouring chart segments
+/// stay visually distinct.
+List<Color> buildChartColors(List<Color> base, int count) {
+  if (base.isEmpty || count <= 0) return const [];
+  final out = <Color>[];
+  for (var i = 0; i < count; i++) {
+    final c = base[i % base.length];
+    final cycle = i ~/ base.length;
+    if (cycle == 0) {
+      out.add(c);
+    } else {
+      final hsl = HSLColor.fromColor(c);
+      final l = (hsl.lightness + 0.14 * cycle).clamp(0.25, 0.85);
+      final s = (hsl.saturation - 0.05 * cycle).clamp(0.2, 1.0);
+      out.add(hsl.withLightness(l).withSaturation(s).toColor());
+    }
+  }
+  return out;
 }
 
 const _black = Color(0xFF111111);
@@ -260,11 +288,24 @@ AppTheme _birdTheme({
   final seed = colors[0];
   final secondary = colors.length > 2 ? colors[2] : colors.last;
   final tertiary = colors.length > 3 ? colors[3] : colors[colors.length ~/ 2];
-  final surfaceTint = colors.last.withValues(alpha: 0.03);
+
+  // A pick that is dark enough to read white text on top of it — used for the
+  // app bar and navigation accents so the palette's identity comes through
+  // strongly rather than being washed out by Material's tonal mapping.
+  final accent = colors.firstWhere(
+    (c) => c.computeLuminance() < 0.42,
+    orElse: () => seed,
+  );
+  final onAccent = accent.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+
+  // Backgrounds stay light: a barely-there wash of the seed over white keeps
+  // the surface bright while still feeling part of the theme.
+  final bg = Color.alphaBlend(seed.withValues(alpha: 0.05), const Color(0xFFFFFFFF));
 
   return AppTheme(
     name: name,
     icon: icon,
+    palette: colors,
     light: ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
@@ -272,30 +313,43 @@ AppTheme _birdTheme({
         secondary: secondary,
         tertiary: tertiary,
         brightness: Brightness.light,
-        surface: surfaceTint,
+      ).copyWith(
+        surface: Colors.white,
+        surfaceContainerLowest: Colors.white,
+        surfaceContainerLow: bg,
       ),
       brightness: Brightness.light,
+      scaffoldBackgroundColor: bg,
       cardTheme: CardThemeData(
         elevation: 0,
+        color: Colors.white,
+        shadowColor: seed.withValues(alpha: 0.25),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: seed.withValues(alpha: 0.2), width: 1),
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: seed.withValues(alpha: 0.16), width: 1),
         ),
         surfaceTintColor: Colors.transparent,
       ),
       appBarTheme: AppBarThemeData(
-        backgroundColor: seed,
-        foregroundColor: seed.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+        backgroundColor: accent,
+        foregroundColor: onAccent,
         centerTitle: true,
         elevation: 0,
         titleTextStyle: TextStyle(
           fontWeight: FontWeight.w700,
           fontSize: 18,
-          color: seed.computeLuminance() > 0.5 ? Colors.black : Colors.white,
+          color: onAccent,
         ),
       ),
       navigationRailTheme: NavigationRailThemeData(
-        indicatorColor: seed.withValues(alpha: 0.15),
+        backgroundColor: Colors.white,
+        indicatorColor: accent.withValues(alpha: 0.16),
+        selectedIconTheme: IconThemeData(color: accent, size: 26),
+        selectedLabelTextStyle: TextStyle(
+          fontWeight: FontWeight.w800,
+          fontSize: 11,
+          color: accent,
+        ),
         labelType: NavigationRailLabelType.all,
       ),
       chipTheme: ChipThemeData(
@@ -304,6 +358,7 @@ AppTheme _birdTheme({
       ),
       searchBarTheme: SearchBarThemeData(
         elevation: WidgetStateProperty.all(0),
+        backgroundColor: WidgetStateProperty.all(Colors.white),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -362,6 +417,16 @@ final appThemes = [
     icon: Icons.bolt,
     light: _neoBrutalismLight(),
     dark: _neoBrutalismDark(),
+    palette: const [
+      _neoYellow,
+      _neoRed,
+      _neoBlue,
+      Color(0xFFD36328),
+      Color(0xFF6D8600),
+      Color(0xFFBD338F),
+      Color(0xFF007CBF),
+      _black,
+    ],
   ),
   _birdTheme(
     name: 'Spotted Pardalote',

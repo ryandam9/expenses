@@ -4,6 +4,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../services/database_service.dart';
 import '../providers/filter_provider.dart';
+import '../providers/theme_provider.dart';
+import '../theme/app_themes.dart';
 import '../models/expense.dart';
 import '../widgets/filter_bar.dart';
 
@@ -38,13 +40,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   String _sortKey = 'date';
   bool _sortAsc = false;
 
-  static const _chartColors = [
-    Color(0xFFE57373), Color(0xFF64B5F6), Color(0xFF81C784), Color(0xFFFFD54F),
-    Color(0xFFBA68C8), Color(0xFF4DB6AC), Color(0xFFFF8A65), Color(0xFFA1887F),
-    Color(0xFF90A4AE), Color(0xFFF06292), Color(0xFF4DD0E1), Color(0xFFAED581),
-    Color(0xFFFFB74D), Color(0xFF9575CD), Color(0xFF7986CB), Color(0xFF4FC3F7),
-    Color(0xFFDCE775), Color(0xFFE0E0E0),
-  ];
+  /// Chart colours drawn from the active theme's feather palette, so the
+  /// visualisations share the rest of the app's colour identity instead of a
+  /// generic, off-theme set.
+  List<Color> _categoryColors(int n) {
+    final palette = appThemes[ref.read(themeIndexProvider)].palette;
+    final colors = buildChartColors(palette, n);
+    return colors.isEmpty ? List.filled(n, Colors.grey) : colors;
+  }
 
   @override
   void initState() {
@@ -158,7 +161,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (!_loadedOnce) {
       return const Center(child: CircularProgressIndicator());
     }
-    return Column(
+    final content = Column(
       children: [
         SizedBox(
           height: 3,
@@ -173,6 +176,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ),
       ],
     );
+    // Ambient design: the surface is lit by two soft, palette-coloured glows
+    // bleeding in from opposite corners. Alpha is kept very low so the base
+    // stays bright and text contrast is untouched.
+    return DecoratedBox(
+      decoration: BoxDecoration(gradient: _ambientGlow(theme)),
+      child: content,
+    );
+  }
+
+  Gradient _ambientGlow(ThemeData theme) {
+    final palette = appThemes[ref.read(themeIndexProvider)].palette;
+    final a = (palette.isNotEmpty ? palette.first : theme.colorScheme.primary)
+        .withValues(alpha: 0.10);
+    final b = (palette.length > 2 ? palette[2] : theme.colorScheme.tertiary)
+        .withValues(alpha: 0.07);
+    return LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [a, Colors.transparent, b],
+      stops: const [0.0, 0.55, 1.0],
+    );
   }
 
   // ---------------------------------------------------------------- KPI header
@@ -181,7 +205,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final fmt = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      color: theme.colorScheme.surface,
+      color: Colors.transparent,
       child: Row(
         children: [
           _kpi(theme, 'Expenses', fmt.format(_totalDebits),
@@ -205,9 +229,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerLowest,
+          // A soft white surface lifted by an ambient glow in the metric's
+          // own accent colour — the card reads as lit from within.
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              theme.colorScheme.surfaceContainerLowest,
+              Color.alphaBlend(
+                  color.withValues(alpha: 0.06), theme.colorScheme.surfaceContainerLowest),
+            ],
+          ),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.colorScheme.outlineVariant, width: 1.5),
+          border: Border.all(color: color.withValues(alpha: 0.22), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.12),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -275,6 +316,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final entries = _categorySpend.entries.toList();
     final maxVal = entries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
     final total = entries.fold<double>(0, (s, e) => s + e.value);
+    final colors = _categoryColors(entries.length);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -314,10 +356,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   return BarChartGroupData(x: i, barRods: [
                     BarChartRodData(
                       toY: entries[i].value,
-                      color: _chartColors[i % _chartColors.length],
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          colors[i].withValues(alpha: 0.78),
+                          colors[i],
+                        ],
+                      ),
                       width: 22,
                       borderRadius:
-                          const BorderRadius.vertical(top: Radius.circular(4)),
+                          const BorderRadius.vertical(top: Radius.circular(6)),
                     ),
                   ]);
                 }),
@@ -378,12 +427,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           const SizedBox(height: 8),
           ...entries.take(8).map((e) {
             final pct = total == 0 ? 0.0 : e.value / total;
-            final color = _chartColors[entries.indexOf(e) % _chartColors.length];
+            final color = colors[entries.indexOf(e)];
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
-                  Container(width: 10, height: 10, color: color),
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(e.key.replaceAll('-', ' ').toLowerCase(),
