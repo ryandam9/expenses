@@ -4,8 +4,10 @@ import '../models/app_filter.dart';
 import '../services/database_service.dart';
 import '../providers/filter_provider.dart';
 import '../providers/prefs_provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../providers/theme_provider.dart';
 import '../theme/app_themes.dart';
+import '../utils/category_icons.dart';
 
 /// Persistent vertical filter sidebar: period selection (monthly or custom)
 /// plus a multi-select category checklist scoped to the selected period.
@@ -492,6 +494,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
           ..._categories.map((c) => _categoryTile(
                 theme,
                 label: c.replaceAll('-', ' ').toLowerCase(),
+                icon: categoryIcon(c),
                 dot: _categoryColor(c),
                 value: filter.allCategories || filter.categories.contains(c),
                 onChanged: () => notifier.toggleCategory(c, _categories),
@@ -505,6 +508,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
     required String label,
     required bool? value,
     required VoidCallback onChanged,
+    FaIconData? icon,
     Color? dot,
     bool tristate = false,
     bool bold = false,
@@ -553,14 +557,11 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                           : null),
                 ),
                 const SizedBox(width: 12),
-                if (dot != null) ...[
-                  Container(
-                    width: 9,
-                    height: 9,
-                    decoration: BoxDecoration(
-                      color: dot,
-                      borderRadius: BorderRadius.circular(3),
-                    ),
+                // Category icon in the category's stable accent colour.
+                if (icon != null) ...[
+                  SizedBox(
+                    width: 17,
+                    child: FaIcon(icon, size: 12.5, color: dot ?? cs.primary),
                   ),
                   const SizedBox(width: 8),
                 ],

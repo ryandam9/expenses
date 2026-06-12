@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../services/database_service.dart';
@@ -13,6 +14,7 @@ import '../providers/theme_provider.dart';
 import '../providers/prefs_provider.dart';
 import '../theme/app_themes.dart';
 import '../models/expense.dart';
+import '../utils/category_icons.dart';
 import '../utils/format.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/db_path_dialog.dart';
@@ -859,12 +861,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
         ),
-        child: Text(
-          category.replaceAll('-', ' ').toLowerCase(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-              fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FaIcon(categoryIcon(category), size: 10.5, color: textColor),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                category.replaceAll('-', ' ').toLowerCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: textColor),
+              ),
+            ),
+          ],
         ),
       ),
     );
