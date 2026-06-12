@@ -12,7 +12,7 @@ import 'category_pill.dart';
 /// more than one category is charted). With few bars the amounts are
 /// labelled permanently; with many, hover tooltips show date, description
 /// and amount instead.
-class TransactionsBarChart extends ConsumerWidget {
+class TransactionsBarChart extends ConsumerStatefulWidget {
   final List<Expense> transactions;
   const TransactionsBarChart({super.key, required this.transactions});
 
@@ -21,16 +21,32 @@ class TransactionsBarChart extends ConsumerWidget {
   static const _maxBars = 500;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TransactionsBarChart> createState() =>
+      _TransactionsBarChartState();
+}
+
+class _TransactionsBarChartState extends ConsumerState<TransactionsBarChart> {
+  // Shared between the Scrollbar and the scroll view — without this the
+  // thumb renders but dragging it does nothing.
+  final _hScroll = ScrollController();
+
+  @override
+  void dispose() {
+    _hScroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
     // Spending only, oldest to newest left-to-right.
-    var rows = transactions.where((e) => e.debit > 0).toList()
+    var rows = widget.transactions.where((e) => e.debit > 0).toList()
       ..sort((a, b) => a.date.compareTo(b.date));
     final totalCount = rows.length;
-    if (rows.length > _maxBars) {
-      rows = rows.sublist(rows.length - _maxBars);
+    if (rows.length > TransactionsBarChart._maxBars) {
+      rows = rows.sublist(rows.length - TransactionsBarChart._maxBars);
     }
 
     final title = Row(
@@ -89,8 +105,9 @@ class TransactionsBarChart extends ConsumerWidget {
     final maxVal =
         rows.map((e) => e.debit).reduce((a, b) => a > b ? a : b);
     final few = rows.length <= 20;
-    // Headroom for the permanent value labels when they're shown.
-    final maxY = maxVal <= 0 ? 1.0 : maxVal * (few ? 1.25 : 1.1);
+    // Generous headroom so the value labels / hover tooltips never collide
+    // with the top of the chart.
+    final maxY = maxVal <= 0 ? 1.0 : maxVal * (few ? 1.3 : 1.25);
     final slotWidth = few ? 44.0 : 26.0;
     final barWidth = few ? 24.0 : 14.0;
     final minChartWidth = rows.length * slotWidth;
@@ -177,15 +194,17 @@ class TransactionsBarChart extends ConsumerWidget {
                 label:
                     'Bar chart of ${rows.length} individual transactions over time',
                 child: SizedBox(
-                  height: 320,
+                  height: 430,
                   child: LayoutBuilder(
                     builder: (context, c) {
                       final width = minChartWidth < c.maxWidth
                           ? c.maxWidth
                           : minChartWidth;
                       return Scrollbar(
+                        controller: _hScroll,
                         thumbVisibility: minChartWidth > c.maxWidth,
                         child: SingleChildScrollView(
+                          controller: _hScroll,
                           scrollDirection: Axis.horizontal,
                           child: SizedBox(
                             width: width,
@@ -205,6 +224,8 @@ class TransactionsBarChart extends ConsumerWidget {
                                               Colors.transparent,
                                           tooltipPadding: EdgeInsets.zero,
                                           tooltipMargin: 6,
+                                          fitInsideVertically: true,
+                                          fitInsideHorizontally: true,
                                           getTooltipItem: (group, _, rod, _) =>
                                               BarTooltipItem(
                                             compactMoney(rod.toY),
@@ -219,6 +240,10 @@ class TransactionsBarChart extends ConsumerWidget {
                                     : BarTouchData(
                                         enabled: true,
                                         touchTooltipData: BarTouchTooltipData(
+                                          // Reposition tooltips that would
+                                          // poke past the chart's edges.
+                                          fitInsideVertically: true,
+                                          fitInsideHorizontally: true,
                                           getTooltipItem: (group, _, rod, _) {
                                             final e = rows[group.x];
                                             final desc = e.description.length >

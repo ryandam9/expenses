@@ -37,6 +37,16 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
   // "pop", the legend row tint and the live readout in the donut's centre.
   int _touchedPie = -1;
 
+  // Shared between the bar chart's Scrollbar and its scroll view — without
+  // this the thumb renders but dragging it does nothing.
+  final _barScroll = ScrollController();
+
+  @override
+  void dispose() {
+    _barScroll.dispose();
+    super.dispose();
+  }
+
   // Shared implicit-animation settings for all fl_chart widgets, so charts
   // ease into place on load and morph smoothly when the filter changes.
   static const _chartAnim = Duration(milliseconds: 500);
@@ -399,8 +409,10 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
               final width =
                   minChartWidth < c.maxWidth ? c.maxWidth : minChartWidth;
               return Scrollbar(
+                controller: _barScroll,
                 thumbVisibility: minChartWidth > c.maxWidth,
                 child: SingleChildScrollView(
+                  controller: _barScroll,
                   scrollDirection: Axis.horizontal,
                   child: SizedBox(
                     width: width,
