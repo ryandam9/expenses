@@ -51,7 +51,8 @@ const schemeVariants = <DynamicSchemeVariant>[
 class SchemeVariantNotifier extends Notifier<DynamicSchemeVariant> {
   @override
   DynamicSchemeVariant build() {
-    final i = ref.read(sharedPreferencesProvider).getInt('schemeVariant') ?? 0;
+    // Default to vibrant: the calm tonalSpot default read as washed-out.
+    final i = ref.read(sharedPreferencesProvider).getInt('schemeVariant') ?? 1;
     return schemeVariants[i.clamp(0, schemeVariants.length - 1)];
   }
 
