@@ -211,162 +211,209 @@ List<Color> buildChartColors(List<Color> base, int count) {
   return out;
 }
 
-/// The selectable themes: each one is drawn from the plumage of a real bird —
-/// the seed colours come from its most striking feathers and the six-colour
-/// chart palette from the rest of its colouring, so picking a theme dresses
-/// the whole dashboard in that bird's feathers.
+/// The selectable themes: each one is drawn from the plumage of a real bird,
+/// using the hand-picked palettes from ryandam.net/demos/feathers_palettes.
+/// The seed colours come from the bird's most striking feathers and the chart
+/// palette from the rest of its colouring (very pale or near-black swatches
+/// are kept out of the chart set so data stays legible in both modes).
 const appThemes = <AppTheme>[
-  // Blue head, orange-red breast, green wings, yellow nape, violet belly.
+  // #feca00 #d36328 #cb0300 #b4b9b3 #424847 #000100
   AppTheme(
-    id: 'lorikeet',
-    name: 'Rainbow Lorikeet',
-    icon: Icons.looks,
-    primary: Color(0xFF2E5EAA),
-    secondary: Color(0xFF43A047),
-    tertiary: Color(0xFFF26419),
+    id: 'spotted_pardalote',
+    name: 'Spotted Pardalote',
+    icon: Icons.blur_on,
+    primary: Color(0xFFD36328),
+    secondary: Color(0xFFFECA00),
+    tertiary: Color(0xFFCB0300),
     chartColors: [
-      Color(0xFF2E5EAA), // head blue
-      Color(0xFFF26419), // breast orange
-      Color(0xFF43A047), // wing green
-      Color(0xFFF6AE2D), // nape yellow
-      Color(0xFFD7263D), // breast red
-      Color(0xFF7B4FA6), // belly violet
+      Color(0xFFFECA00),
+      Color(0xFFD36328),
+      Color(0xFFCB0300),
+      Color(0xFFB4B9B3),
+      Color(0xFF424847),
     ],
   ),
-  // Deep azure back, teal sheen, warm orange chest over river-water blues.
+  // #edd8c5 #d09a5e #e7aa01 #ac570f #73481b #442c0e #0d0403
   AppTheme(
-    id: 'kingfisher',
-    name: 'Azure Kingfisher',
-    icon: Icons.waves,
-    primary: Color(0xFF0F6BAE),
-    secondary: Color(0xFF12A5BC),
-    tertiary: Color(0xFFE98A33),
+    id: 'plains_wanderer',
+    name: 'Plains-wanderer',
+    icon: Icons.landscape,
+    primary: Color(0xFFAC570F),
+    secondary: Color(0xFFE7AA01),
+    tertiary: Color(0xFF73481B),
     chartColors: [
-      Color(0xFF0F6BAE), // azure back
-      Color(0xFFE98A33), // chest orange
-      Color(0xFF12A5BC), // teal sheen
-      Color(0xFF74B3CE), // wing shimmer
-      Color(0xFFC75146), // rufous flank
-      Color(0xFF134074), // deep water navy
+      Color(0xFFE7AA01),
+      Color(0xFFAC570F),
+      Color(0xFFD09A5E),
+      Color(0xFF73481B),
+      Color(0xFF442C0E),
     ],
   ),
-  // Crimson body, violet-blue cheeks and wing edges, scalloped black back.
+  // #00346E #007CBF #06ABDF #EDD03E #F5A200 #6D8600 #424D0C
   AppTheme(
-    id: 'rosella',
-    name: 'Crimson Rosella',
+    id: 'bee_eater',
+    name: 'Rainbow Bee-eater',
+    icon: Icons.emoji_nature,
+    primary: Color(0xFF007CBF),
+    secondary: Color(0xFF06ABDF),
+    tertiary: Color(0xFFF5A200),
+    chartColors: [
+      Color(0xFF007CBF),
+      Color(0xFFF5A200),
+      Color(0xFF06ABDF),
+      Color(0xFFEDD03E),
+      Color(0xFF6D8600),
+      Color(0xFF00346E),
+    ],
+  ),
+  // #BD338F #EB8252 #F5DC83 #CDD4DC #8098A2 #8FA33F #5F7929 #014820
+  AppTheme(
+    id: 'rose_crowned_fruit_dove',
+    name: 'Rose-crowned Fruit-Dove',
     icon: Icons.local_florist,
-    primary: Color(0xFFC2233B),
-    secondary: Color(0xFF2A5CAA),
-    tertiary: Color(0xFFE8647C),
+    primary: Color(0xFFBD338F),
+    secondary: Color(0xFF5F7929),
+    tertiary: Color(0xFFEB8252),
     chartColors: [
-      Color(0xFFC2233B), // crimson body
-      Color(0xFF2A5CAA), // cheek blue
-      Color(0xFFE8647C), // rose breast
-      Color(0xFF64A6E8), // wing-edge blue
-      Color(0xFFE9A115), // young bird olive-gold
-      Color(0xFF4A4E69), // scalloped back
+      Color(0xFFBD338F),
+      Color(0xFFEB8252),
+      Color(0xFF8FA33F),
+      Color(0xFF8098A2),
+      Color(0xFF014820),
+      Color(0xFFF5DC83),
     ],
   ),
-  // Purple chest, golden belly, green back, scarlet face, turquoise nape.
+  // #cd3122 #f4c623 #bee183 #6c905e #2f533c #b8c9dc #2f7ab9
   AppTheme(
-    id: 'gouldian',
-    name: 'Gouldian Finch',
+    id: 'eastern_rosella',
+    name: 'Eastern Rosella',
     icon: Icons.palette,
-    primary: Color(0xFF6A3FA0),
-    secondary: Color(0xFF19B3B1),
-    tertiary: Color(0xFFF4C20D),
+    primary: Color(0xFFCD3122),
+    secondary: Color(0xFF2F7AB9),
+    tertiary: Color(0xFFF4C623),
     chartColors: [
-      Color(0xFF6A3FA0), // chest purple
-      Color(0xFF19B3B1), // nape turquoise
-      Color(0xFFF4C20D), // belly gold
-      Color(0xFF3F9B42), // back green
-      Color(0xFFD7263D), // face scarlet
-      Color(0xFFE879B9), // pink-faced morph
+      Color(0xFFCD3122),
+      Color(0xFF2F7AB9),
+      Color(0xFFF4C623),
+      Color(0xFF6C905E),
+      Color(0xFFBEE183),
+      Color(0xFF2F533C),
     ],
   ),
-  // Iridescent cobalt and sky blue over the soft fawn of the females.
+  // #8a3223 #bb5645 #d97878 #e2aba0 #d0cfe9 #a29eb8 #6c6b75 #b8a53f #93862a #4d4019
   AppTheme(
-    id: 'fairywren',
-    name: 'Superb Fairywren',
-    icon: Icons.flutter_dash,
-    primary: Color(0xFF2356C5),
-    secondary: Color(0xFF56B6E9),
-    tertiary: Color(0xFFB9824F),
+    id: 'oriole',
+    name: 'Oriole',
+    icon: Icons.music_note,
+    primary: Color(0xFFBB5645),
+    secondary: Color(0xFF93862A),
+    tertiary: Color(0xFFA29EB8),
     chartColors: [
-      Color(0xFF2356C5), // crown cobalt
-      Color(0xFF56B6E9), // cheek sky blue
-      Color(0xFFB9824F), // female fawn
-      Color(0xFF5B6377), // grey-brown wing
-      Color(0xFFE9A115), // sunlit grass
-      Color(0xFF15B097), // eucalypt teal
+      Color(0xFFBB5645),
+      Color(0xFFB8A53F),
+      Color(0xFFA29EB8),
+      Color(0xFF6C6B75),
+      Color(0xFFD97878),
+      Color(0xFF4D4019),
     ],
   ),
-  // Rose-pink chest under dove-grey wings and a pale crest.
+  // #7090c9 #8cb3de #afbe9f #616020 #6eb245 #214917 #cf2236 #d683ad
+  AppTheme(
+    id: 'princess_parrot',
+    name: 'Princess Parrot',
+    icon: Icons.auto_awesome,
+    primary: Color(0xFF7090C9),
+    secondary: Color(0xFF6EB245),
+    tertiary: Color(0xFFD683AD),
+    chartColors: [
+      Color(0xFF7090C9),
+      Color(0xFF6EB245),
+      Color(0xFFD683AD),
+      Color(0xFFCF2236),
+      Color(0xFF8CB3DE),
+      Color(0xFF214917),
+    ],
+  ),
+  // #4F3321 #AA7853 #D9C4A7 #B03F05 #020503
+  AppTheme(
+    id: 'superb_fairy_wren',
+    name: 'Superb Fairy-wren',
+    icon: Icons.flutter_dash,
+    primary: Color(0xFFB03F05),
+    secondary: Color(0xFFAA7853),
+    tertiary: Color(0xFF4F3321),
+    chartColors: [
+      Color(0xFFB03F05),
+      Color(0xFFAA7853),
+      Color(0xFF4F3321),
+      Color(0xFFD9C4A7),
+    ],
+  ),
+  // #BDA14D #3EBCB6 #0169C4 #153460 #D5114E #A56EB6 #4B1C57 #09090C
+  AppTheme(
+    id: 'cassowary',
+    name: 'Cassowary',
+    icon: Icons.forest,
+    primary: Color(0xFF0169C4),
+    secondary: Color(0xFF3EBCB6),
+    tertiary: Color(0xFFD5114E),
+    chartColors: [
+      Color(0xFF0169C4),
+      Color(0xFF3EBCB6),
+      Color(0xFFD5114E),
+      Color(0xFFBDA14D),
+      Color(0xFFA56EB6),
+      Color(0xFF153460),
+    ],
+  ),
+  // #E19E00 #FBEB5B #85773A #979EB9 #727B98 #454B56 #201B1E
+  AppTheme(
+    id: 'yellow_robin',
+    name: 'Yellow Robin',
+    icon: Icons.wb_sunny,
+    primary: Color(0xFFE19E00),
+    secondary: Color(0xFF727B98),
+    tertiary: Color(0xFF85773A),
+    chartColors: [
+      Color(0xFFE19E00),
+      Color(0xFF727B98),
+      Color(0xFF85773A),
+      Color(0xFFFBEB5B),
+      Color(0xFF979EB9),
+      Color(0xFF454B56),
+    ],
+  ),
+  // #FFD2CF #E9A7BB #D05478 #AAB9CC #8390A2 #4C5766
   AppTheme(
     id: 'galah',
     name: 'Galah',
     icon: Icons.favorite,
-    primary: Color(0xFFD94F70),
-    secondary: Color(0xFF7E8287),
-    tertiary: Color(0xFFF2A0B2),
+    primary: Color(0xFFD05478),
+    secondary: Color(0xFF8390A2),
+    tertiary: Color(0xFFE9A7BB),
     chartColors: [
-      Color(0xFFD94F70), // chest rose
-      Color(0xFF7E8287), // wing grey
-      Color(0xFFF2A0B2), // crest blush
-      Color(0xFF8E4162), // deep plum
-      Color(0xFF5F9EA0), // dusty outback teal
-      Color(0xFF3A3E47), // flight-feather charcoal
+      Color(0xFFD05478),
+      Color(0xFF8390A2),
+      Color(0xFFE9A7BB),
+      Color(0xFF4C5766),
+      Color(0xFFAAB9CC),
     ],
   ),
-  // Earthy browns and buff with the surprise blue flash on the wing.
+  // #b5effb #0b7595 #02407c #06213a #c45829 #9C4620 #622C14 #d4d8e3 #b8bcd8 #ad8d9f #725f77
   AppTheme(
-    id: 'kookaburra',
-    name: 'Kookaburra',
-    icon: Icons.forest,
-    primary: Color(0xFF4F7CAC),
-    secondary: Color(0xFF8B5E3C),
-    tertiary: Color(0xFFC49A6C),
+    id: 'blue_winged_kookaburra',
+    name: 'Blue-winged Kookaburra',
+    icon: Icons.air,
+    primary: Color(0xFF0B7595),
+    secondary: Color(0xFFC45829),
+    tertiary: Color(0xFF725F77),
     chartColors: [
-      Color(0xFF4F7CAC), // wing-flash blue
-      Color(0xFF8B5E3C), // back brown
-      Color(0xFFC49A6C), // buff breast
-      Color(0xFFB0413E), // rufous tail
-      Color(0xFF7C9A6D), // gum-leaf sage
-      Color(0xFF2F3640), // eye-stripe charcoal
-    ],
-  ),
-  // Teal neck, royal train, emerald coverts and golden eyespots.
-  AppTheme(
-    id: 'peacock',
-    name: 'Peacock',
-    icon: Icons.filter_vintage,
-    primary: Color(0xFF0E7C86),
-    secondary: Color(0xFF1F4690),
-    tertiary: Color(0xFFD4A017),
-    chartColors: [
-      Color(0xFF0E7C86), // neck teal
-      Color(0xFF1F4690), // train royal blue
-      Color(0xFFD4A017), // eyespot gold
-      Color(0xFF2E8B57), // covert emerald
-      Color(0xFF7C3AED), // iridescent violet
-      Color(0xFFB5651D), // eyespot copper
-    ],
-  ),
-  // Pink and coral plumage, sandy gold, lagoon water and the black bill tip.
-  AppTheme(
-    id: 'flamingo',
-    name: 'Flamingo',
-    icon: Icons.spa,
-    primary: Color(0xFFE85C8A),
-    secondary: Color(0xFFF08A5D),
-    tertiary: Color(0xFFE8B86D),
-    chartColors: [
-      Color(0xFFE85C8A), // body pink
-      Color(0xFFF08A5D), // wing coral
-      Color(0xFFE8B86D), // sandy gold
-      Color(0xFF5FB49C), // lagoon teal
-      Color(0xFFB14AED), // sunset orchid
-      Color(0xFF2B2D42), // bill-tip black
+      Color(0xFF0B7595),
+      Color(0xFFC45829),
+      Color(0xFF02407C),
+      Color(0xFFAD8D9F),
+      Color(0xFF725F77),
+      Color(0xFFB8BCD8),
     ],
   ),
 ];
