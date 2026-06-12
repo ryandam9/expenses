@@ -36,43 +36,82 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _sectionTitle(theme, 'Spending Over Time'),
-        const SizedBox(height: 10),
-        _buildTrendCard(theme),
-        const SizedBox(height: 24),
-        _sectionTitle(theme, 'Spending by Category'),
-        const SizedBox(height: 10),
-        _buildCategoryBarCard(theme),
-        const SizedBox(height: 24),
-        _sectionTitle(theme, 'Spending by Bank'),
-        const SizedBox(height: 10),
-        _buildBankCard(theme),
-        const SizedBox(height: 24),
-        _sectionTitle(theme, 'Category Share'),
-        const SizedBox(height: 10),
-        _buildCategoryCard(theme),
-      ],
-    );
+    // On wide desktop windows, pair the category and bank breakdowns side by
+    // side so cards don't stretch into wide, empty bands.
+    return LayoutBuilder(builder: (context, c) {
+      final wide = c.maxWidth >= 1080;
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _sectionTitle(theme, Icons.show_chart, 'Spending Over Time'),
+          const SizedBox(height: 10),
+          _buildTrendCard(theme),
+          const SizedBox(height: 24),
+          if (wide)
+            Row(
+              crossAxisAlignment: .start,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: .start,
+                    children: [
+                      _sectionTitle(
+                          theme, Icons.bar_chart, 'Spending by Category'),
+                      const SizedBox(height: 10),
+                      _buildCategoryBarCard(theme),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: .start,
+                    children: [
+                      _sectionTitle(
+                          theme, Icons.account_balance, 'Spending by Bank'),
+                      const SizedBox(height: 10),
+                      _buildBankCard(theme),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          else ...[
+            _sectionTitle(theme, Icons.bar_chart, 'Spending by Category'),
+            const SizedBox(height: 10),
+            _buildCategoryBarCard(theme),
+            const SizedBox(height: 24),
+            _sectionTitle(theme, Icons.account_balance, 'Spending by Bank'),
+            const SizedBox(height: 10),
+            _buildBankCard(theme),
+          ],
+          const SizedBox(height: 24),
+          _sectionTitle(theme, Icons.donut_large, 'Category Share'),
+          const SizedBox(height: 10),
+          _buildCategoryCard(theme),
+        ],
+      );
+    });
   }
 
-  Widget _sectionTitle(ThemeData theme, String title) {
+  Widget _sectionTitle(ThemeData theme, IconData icon, String title) {
+    final cs = theme.colorScheme;
     return Row(
       children: [
         Container(
-          width: 4,
-          height: 18,
+          padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
-            color: theme.colorScheme.primary,
-            borderRadius: BorderRadius.circular(2),
+            color: cs.primary.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(9),
           ),
+          child: Icon(icon, size: 16, color: cs.primary),
         ),
         const SizedBox(width: 10),
         Text(title,
             style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800)),
+                ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.2)),
       ],
     );
   }
@@ -203,8 +242,12 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                       isCurved: true,
                       curveSmoothness: 0.25,
                       preventCurveOverShooting: true,
-                      color: lineColor,
-                      barWidth: 3,
+                      // A primary→tertiary sweep gives the line more life than
+                      // a flat single colour.
+                      gradient: LinearGradient(
+                        colors: [lineColor, cs.tertiary],
+                      ),
+                      barWidth: 3.5,
                       isStrokeCapRound: true,
                       dotData: FlDotData(
                         show: series.length <= 31,
@@ -293,9 +336,11 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     final entries = byCategory.entries.toList();
     final maxVal = entries.first.value;
     final colors = _colors(entries.length);
+    // Extra headroom so the always-on value labels above the bars never clip.
+    final maxY = maxVal <= 0 ? 1.0 : maxVal * 1.28;
     // Keep bars readable: give each one breathing room and let the card scroll
     // horizontally when there are many categories.
-    final chartWidth = (entries.length * 56).toDouble();
+    final chartWidth = (entries.length * 64).toDouble();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 18, 16, 8),
@@ -316,44 +361,54 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                     child: BarChart(
                       BarChartData(
                         alignment: BarChartAlignment.spaceAround,
-                        maxY: maxVal <= 0 ? 1 : maxVal * 1.18,
+                        maxY: maxY,
+                        // Values are rendered permanently above each bar using
+                        // the transparent-tooltip technique, so the chart reads
+                        // at a glance without hovering.
                         barTouchData: BarTouchData(
+                          enabled: false,
                           touchTooltipData: BarTouchTooltipData(
+                            getTooltipColor: (_) => Colors.transparent,
+                            tooltipPadding: EdgeInsets.zero,
+                            tooltipMargin: 4,
                             getTooltipItem: (group, _, rod, _) =>
                                 BarTooltipItem(
-                              '${entries[group.x].key.replaceAll('-', ' ')}\n',
-                              const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 11),
-                              children: [
-                                TextSpan(
-                                  text: compactMoney(rod.toY),
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 11),
-                                ),
-                              ],
+                              compactMoney(rod.toY),
+                              TextStyle(
+                                  color: cs.onSurfaceVariant,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 9.5),
                             ),
                           ),
                         ),
                         barGroups: [
                           for (var i = 0; i < entries.length; i++)
-                            BarChartGroupData(x: i, barRods: [
-                              BarChartRodData(
-                                toY: entries[i].value,
-                                width: 24,
-                                borderRadius: const BorderRadius.vertical(
-                                    top: Radius.circular(6)),
-                                gradient: LinearGradient(
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                  colors: [
-                                    colors[i].withValues(alpha: 0.75),
-                                    colors[i],
-                                  ],
-                                ),
-                              ),
-                            ]),
+                            BarChartGroupData(
+                                x: i,
+                                showingTooltipIndicators: const [0],
+                                barRods: [
+                                  BarChartRodData(
+                                    toY: entries[i].value,
+                                    width: 26,
+                                    borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(7)),
+                                    gradient: LinearGradient(
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                      colors: [
+                                        colors[i].withValues(alpha: 0.72),
+                                        colors[i],
+                                      ],
+                                    ),
+                                    backDrawRodData:
+                                        BackgroundBarChartRodData(
+                                      show: true,
+                                      toY: maxY,
+                                      color: cs.surfaceContainerHigh
+                                          .withValues(alpha: 0.45),
+                                    ),
+                                  ),
+                                ]),
                         ],
                         titlesData: FlTitlesData(
                           leftTitles: AxisTitles(
@@ -386,7 +441,9 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                                             .key
                                             .replaceAll('-', ' ')
                                             .toLowerCase(),
-                                        style: const TextStyle(fontSize: 8.5),
+                                        style: const TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -523,15 +580,15 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     final donut = Semantics(
       label: 'Donut chart of category share, total ${compactMoney(total)}',
       child: SizedBox(
-        width: 220,
-        height: 220,
+        width: 248,
+        height: 248,
         child: Stack(
           alignment: Alignment.center,
           children: [
             PieChart(
               PieChartData(
-                sectionsSpace: 2,
-                centerSpaceRadius: 62,
+                sectionsSpace: 2.5,
+                centerSpaceRadius: 64,
                 startDegreeOffset: -90,
                 pieTouchData: PieTouchData(
                   touchCallback: (event, resp) {
@@ -551,8 +608,22 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                     PieChartSectionData(
                       value: entries[i].value,
                       color: colors[i],
-                      radius: _touchedPie == i ? 30 : 24,
-                      showTitle: false,
+                      radius: _touchedPie == i ? 42 : 34,
+                      // Label the slices big enough to fit a readable
+                      // percentage; thin slivers stay clean and rely on the
+                      // legend instead.
+                      showTitle: total > 0 && entries[i].value / total >= 0.06,
+                      title:
+                          '${(entries[i].value / total * 100).round()}%',
+                      titlePositionPercentageOffset: 0.58,
+                      titleStyle: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(blurRadius: 2, color: Colors.black38),
+                        ],
+                      ),
                     ),
                 ],
               ),

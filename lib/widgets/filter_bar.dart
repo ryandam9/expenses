@@ -173,7 +173,9 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
     return Container(
       width: 288,
       decoration: BoxDecoration(
-        color: cs.surface,
+        // A slightly raised tone so the sidebar reads as its own zone instead
+        // of blending into the content surface.
+        color: cs.surfaceContainerLow,
         border: Border(right: BorderSide(color: cs.outlineVariant, width: 1)),
       ),
       child: Column(

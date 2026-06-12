@@ -246,9 +246,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Gradient _ambientGlow(ThemeData theme) {
     final palette = appThemes[ref.watch(themeIndexProvider)].palette;
     final a = (palette.isNotEmpty ? palette.first : theme.colorScheme.primary)
-        .withValues(alpha: 0.10);
+        .withValues(alpha: 0.15);
     final b = (palette.length > 2 ? palette[2] : theme.colorScheme.tertiary)
-        .withValues(alpha: 0.07);
+        .withValues(alpha: 0.10);
     return LinearGradient(
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -393,60 +393,68 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return SizedBox(
       width: width,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          // A soft white surface lifted by an ambient glow in the metric's
-          // own accent colour — the card reads as lit from within.
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              theme.colorScheme.surfaceContainerLowest,
-              Color.alphaBlend(color.withValues(alpha: 0.06),
-                  theme.colorScheme.surfaceContainerLowest),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.22), width: 1.5),
+          // The tile is washed in its metric's accent colour, with a solid
+          // accent stripe on the left so each KPI has a strong identity.
+          color: Color.alphaBlend(color.withValues(alpha: 0.09),
+              theme.colorScheme.surfaceContainerLowest),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.30), width: 1),
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.12),
-              blurRadius: 16,
+              color: color.withValues(alpha: 0.16),
+              blurRadius: 18,
               offset: const Offset(0, 6),
             ),
           ],
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Container(width: 5, color: color),
+              Expanded(
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Icon(icon, color: color, size: 19),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: .start,
+                          mainAxisSize: .min,
+                          children: [
+                            Text(value,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.3)),
+                            Text(label.toUpperCase(),
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                    letterSpacing: 0.6,
+                                    fontWeight: FontWeight.w700,
+                                    color:
+                                        theme.colorScheme.onSurfaceVariant)),
+                            ?delta,
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              child: Icon(icon, color: color, size: 18),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: .start,
-                mainAxisSize: .min,
-                children: [
-                  Text(value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800)),
-                  Text(label.toUpperCase(),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                          letterSpacing: 0.5,
-                          fontWeight: FontWeight.w700,
-                          color: theme.colorScheme.onSurfaceVariant)),
-                  ?delta,
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -617,11 +625,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _tableHeader(ThemeData theme) {
-    final onPrimary = theme.colorScheme.onPrimary;
+    final cs = theme.colorScheme;
+    final onPrimary = cs.onPrimary;
     return Container(
       height: 42,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(color: theme.colorScheme.primary),
+      // A subtle primary→secondary sweep instead of a flat block of colour.
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [cs.primary, Color.lerp(cs.primary, cs.secondary, 0.55)!],
+        ),
+      ),
       child: Row(
         children: [
           for (var i = 0; i < _columns.length; i++) ...[
@@ -707,17 +721,58 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  /// '2024-03-08' → '8 Mar 2024'; anything unparseable passes through.
+  String _fmtDate(String iso) {
+    final d = DateTime.tryParse(iso);
+    return d == null ? iso : DateFormat('d MMM yyyy').format(d);
+  }
+
+  /// Stable per-category accent drawn from the theme's chart palette (hashed
+  /// on the name, so a category keeps its colour across filters and pages).
+  Color _categoryColor(String category) {
+    final palette = appThemes[ref.read(themeIndexProvider)].palette;
+    if (palette.isEmpty) return Theme.of(context).colorScheme.primary;
+    final h = category.codeUnits.fold<int>(0, (s, c) => s + c);
+    return palette[h % palette.length];
+  }
+
+  Widget _categoryPill(ThemeData theme, String category) {
+    final color = _categoryColor(category);
+    final hsl = HSLColor.fromColor(color);
+    final textColor = hsl
+        .withLightness(theme.brightness == Brightness.dark ? 0.78 : 0.30)
+        .toColor();
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
+        ),
+        child: Text(
+          category.replaceAll('-', ' ').toLowerCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+              fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
+        ),
+      ),
+    );
+  }
+
   Widget _tableRow(
       ThemeData theme, Expense tx, int displayIndex, int rowInPage) {
     final amount = tx.debit > 0 ? -tx.debit : tx.credit;
     final isDebit = tx.debit > 0;
     final values = <String>[
       '${displayIndex + 1}',
-      tx.date,
+      _fmtDate(tx.date),
       tx.description,
       tx.source,
       currency2.format(amount),
-      tx.category.replaceAll('-', ' ').toLowerCase(),
+      '', // category renders as a coloured pill, not text
     ];
     return InkWell(
       onTap: () => _showTxDetail(theme, tx),
@@ -737,29 +792,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           children: List.generate(_columns.length, (c) {
             final isAmount = c == 4;
             final isDescription = c == 2;
+            final isCategory = c == 5;
             return Padding(
               padding: const EdgeInsets.only(right: _cellGap),
               child: SizedBox(
                 width: _colWidths[c],
-                child: Text(
-                  values[c],
-                  textAlign: _columns[c].$3,
-                  softWrap: isDescription,
-                  overflow: isDescription
-                      ? TextOverflow.visible
-                      : TextOverflow.ellipsis,
-                  maxLines: isDescription ? null : 1,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    height: isDescription ? 1.35 : null,
-                    fontWeight: isAmount ? FontWeight.w800 : FontWeight.w500,
-                    color: isAmount
-                        ? (isDebit
-                            ? theme.colorScheme.error
-                            : Colors.green.shade700)
-                        : theme.colorScheme.onSurface,
-                  ),
-                ),
+                child: isCategory
+                    ? _categoryPill(theme, tx.category)
+                    : Text(
+                        values[c],
+                        textAlign: _columns[c].$3,
+                        softWrap: isDescription,
+                        overflow: isDescription
+                            ? TextOverflow.visible
+                            : TextOverflow.ellipsis,
+                        maxLines: isDescription ? null : 1,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: isDescription ? 1.35 : null,
+                          fontWeight:
+                              isAmount ? FontWeight.w800 : FontWeight.w500,
+                          color: isAmount
+                              ? (isDebit
+                                  ? theme.colorScheme.error
+                                  : Colors.green.shade700)
+                              : theme.colorScheme.onSurface,
+                        ),
+                      ),
               ),
             );
           }),
@@ -787,7 +846,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _detailRow(theme, 'Description', tx.description),
-              _detailRow(theme, 'Date', tx.date),
+              _detailRow(theme, 'Date', _fmtDate(tx.date)),
               _detailRow(theme, 'Category',
                   tx.category.replaceAll('-', ' ').toLowerCase()),
               _detailRow(theme, 'Bank', tx.source),
