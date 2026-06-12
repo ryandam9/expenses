@@ -9,6 +9,7 @@ import '../utils/category_icons.dart';
 import '../utils/format.dart';
 import '../widgets/category_pill.dart';
 import '../widgets/overview_charts.dart';
+import '../widgets/transactions_bar_chart.dart';
 
 /// Category-first exploration: pick one or more categories from the entire
 /// database and see all their transactions across all time, optionally
@@ -25,6 +26,13 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   final _searchCtrl = TextEditingController();
   String _search = '';
   String _section = 'transactions';
+
+  // Category list order: alphabetical by default, or by all-time spend.
+  bool _sortAlpha = true;
+
+  // Transactions table sort.
+  String _sortKey = 'date';
+  bool _sortAsc = false;
 
   @override
   void dispose() {
@@ -127,6 +135,18 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                           : cs.primary),
                 ),
                 const Spacer(),
+                IconButton(
+                  icon: Icon(
+                      _sortAlpha
+                          ? Icons.sort_by_alpha
+                          : Icons.signal_cellular_alt,
+                      size: 16),
+                  tooltip: _sortAlpha
+                      ? 'Sorted A–Z · tap for by spend'
+                      : 'Sorted by spend · tap for A–Z',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() => _sortAlpha = !_sortAlpha),
+                ),
                 if (state.selected.isNotEmpty)
                   TextButton(
                     onPressed: () => ref
@@ -151,15 +171,19 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                       : 'Could not read the database.'),
               data: (summaries) {
                 final q = _search.toLowerCase();
-                final visible = q.isEmpty
-                    ? summaries
+                // The SQL orders by spend; re-sort alphabetically by default.
+                final visible = (q.isEmpty
+                    ? List.of(summaries)
                     : summaries
                         .where((s) =>
                             prettyCategory(s.category)
                                 .toLowerCase()
                                 .contains(q) ||
                             s.category.toLowerCase().contains(q))
-                        .toList();
+                        .toList());
+                if (_sortAlpha) {
+                  visible.sort((a, b) => a.category.compareTo(b.category));
+                }
                 if (visible.isEmpty) {
                   return _panelMessage(theme, 'No categories match');
                 }
@@ -492,8 +516,18 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           ),
         ),
         Expanded(
+          // Overview leads with the per-transaction chart; the per-category
+          // bar chart is dropped there (one bar per selected category says
+          // less than the list panel already does).
           child: _section == 'overview'
-              ? OverviewCharts(transactions: rows)
+              ? OverviewCharts(
+                  transactions: rows,
+                  showCategoryBar: false,
+                  leading: [
+                    TransactionsBarChart(transactions: rows),
+                    const SizedBox(height: 24),
+                  ],
+                )
               : _buildTable(theme, rows),
         ),
       ],
@@ -566,11 +600,43 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   }
 
   // ------------------------------------------------------------------ table
-  // A streamlined transactions table: newest first (the query orders by date
-  // descending), virtualised, no pagination — selections are typically a few
+  // A streamlined transactions table: sortable on every column (newest first
+  // by default), virtualised, no pagination — selections are typically a few
   // hundred rows.
+  List<Expense> _sortRows(List<Expense> list) {
+    final sorted = List<Expense>.from(list);
+    double amt(Expense e) => e.debit > 0 ? -e.debit : e.credit;
+    int cmp(Expense a, Expense b) {
+      final r = switch (_sortKey) {
+        'description' =>
+          a.description.toLowerCase().compareTo(b.description.toLowerCase()),
+        'bank' => a.source.toLowerCase().compareTo(b.source.toLowerCase()),
+        'category' =>
+          a.category.toLowerCase().compareTo(b.category.toLowerCase()),
+        'amount' => amt(a).compareTo(amt(b)),
+        _ => a.date.compareTo(b.date),
+      };
+      return _sortAsc ? r : -r;
+    }
+
+    sorted.sort(cmp);
+    return sorted;
+  }
+
+  void _onSort(String key) {
+    setState(() {
+      if (_sortKey == key) {
+        _sortAsc = !_sortAsc;
+      } else {
+        _sortKey = key;
+        _sortAsc = true;
+      }
+    });
+  }
+
   Widget _buildTable(ThemeData theme, List<Expense> rows) {
     final cs = theme.colorScheme;
+    final sorted = _sortRows(rows);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Container(
@@ -599,20 +665,22 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               ),
               child: Row(
                 children: [
-                  _headerCell(theme, 'DATE', 110),
-                  _headerCell(theme, 'DESCRIPTION', null),
-                  _headerCell(theme, 'BANK', 100),
-                  _headerCell(theme, 'AMOUNT', 110, right: true),
+                  _headerCell(theme, 'DATE', 110, sortKey: 'date'),
+                  _headerCell(theme, 'DESCRIPTION', null,
+                      sortKey: 'description'),
+                  _headerCell(theme, 'BANK', 100, sortKey: 'bank'),
+                  _headerCell(theme, 'AMOUNT', 110,
+                      right: true, sortKey: 'amount'),
                   const SizedBox(width: 18),
-                  _headerCell(theme, 'CATEGORY', 150),
+                  _headerCell(theme, 'CATEGORY', 150, sortKey: 'category'),
                 ],
               ),
             ),
             Expanded(
               child: SelectionArea(
                 child: ListView.builder(
-                  itemCount: rows.length,
-                  itemBuilder: (context, i) => _tableRow(theme, rows[i], i),
+                  itemCount: sorted.length,
+                  itemBuilder: (context, i) => _tableRow(theme, sorted[i], i),
                 ),
               ),
             ),
@@ -623,21 +691,45 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   }
 
   Widget _headerCell(ThemeData theme, String label, double? width,
-      {bool right = false}) {
-    final text = Text(
-      label,
-      textAlign: right ? TextAlign.right : TextAlign.left,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        fontWeight: FontWeight.w800,
-        fontSize: 11,
-        letterSpacing: 0.6,
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
+      {bool right = false, String? sortKey}) {
+    final cs = theme.colorScheme;
+    final active = sortKey != null && sortKey == _sortKey;
+    final content = Row(
+      mainAxisAlignment:
+          right ? MainAxisAlignment.end : MainAxisAlignment.start,
+      children: [
+        Flexible(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 11,
+              letterSpacing: 0.6,
+              color: active ? cs.primary : cs.onSurfaceVariant,
+            ),
+          ),
+        ),
+        if (sortKey != null) ...[
+          const SizedBox(width: 2),
+          Icon(
+            active
+                ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward)
+                : Icons.unfold_more,
+            size: 13,
+            color: active
+                ? cs.primary
+                : cs.onSurfaceVariant.withValues(alpha: 0.55),
+          ),
+        ],
+      ],
     );
+    final cell = sortKey == null
+        ? content
+        : InkWell(onTap: () => _onSort(sortKey), child: content);
     return width == null
-        ? Expanded(child: text)
-        : SizedBox(width: width, child: text);
+        ? Expanded(child: cell)
+        : SizedBox(width: width, child: cell);
   }
 
   Widget _tableRow(ThemeData theme, Expense tx, int i) {
