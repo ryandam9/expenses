@@ -37,3 +37,33 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 
 final themeModeProvider =
     NotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
+
+/// How strongly the seed colours are expressed in the derived colour scheme,
+/// via [ColorScheme.fromSeed]'s `dynamicSchemeVariant`. A curated subset:
+/// tonalSpot is Material's calm default; vibrant and expressive push more
+/// chroma into containers and surfaces.
+const schemeVariants = <DynamicSchemeVariant>[
+  DynamicSchemeVariant.tonalSpot,
+  DynamicSchemeVariant.vibrant,
+  DynamicSchemeVariant.expressive,
+];
+
+class SchemeVariantNotifier extends Notifier<DynamicSchemeVariant> {
+  @override
+  DynamicSchemeVariant build() {
+    final i = ref.read(sharedPreferencesProvider).getInt('schemeVariant') ?? 0;
+    return schemeVariants[i.clamp(0, schemeVariants.length - 1)];
+  }
+
+  void select(DynamicSchemeVariant variant) {
+    state = variant;
+    final i = schemeVariants.indexOf(variant);
+    ref
+        .read(sharedPreferencesProvider)
+        .setInt('schemeVariant', i < 0 ? 0 : i);
+  }
+}
+
+final schemeVariantProvider =
+    NotifierProvider<SchemeVariantNotifier, DynamicSchemeVariant>(
+        SchemeVariantNotifier.new);

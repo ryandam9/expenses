@@ -18,8 +18,9 @@ searchable transaction table plus KPIs and charts.
   data) or a custom date range, plus a multi-select category checklist scoped
   to the selected period. Transfers between your own accounts
   (`category = TRANSFERS`) are excluded everywhere.
-- **Theming** — a set of curated colour themes (light/dark/system), selectable
-  Google Fonts and text size, all persisted.
+- **Theming** — a set of curated colour themes (light/dark/system) with a
+  colour-intensity setting (tonal / vibrant / expressive seed-scheme
+  variants), selectable Google Fonts and text size, all persisted.
 
 ## Data format
 

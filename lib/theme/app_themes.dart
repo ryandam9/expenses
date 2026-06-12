@@ -31,13 +31,18 @@ class AppTheme {
   /// the theme's identity instead of a generic, off-theme palette.
   List<Color> get palette => chartColors;
 
-  ThemeData themeData(Brightness brightness) {
+  /// [variant] controls how strongly the seed colours are expressed in the
+  /// derived scheme (tonalSpot = calm default, vibrant/expressive = more
+  /// chroma in containers and surfaces).
+  ThemeData themeData(Brightness brightness,
+      {DynamicSchemeVariant variant = DynamicSchemeVariant.tonalSpot}) {
     final scheme = ColorScheme.fromSeed(
       seedColor: primary,
       primary: primary,
       secondary: secondary,
       tertiary: tertiary,
       brightness: brightness,
+      dynamicSchemeVariant: variant,
     );
 
     return ThemeData(

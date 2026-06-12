@@ -34,6 +34,12 @@ class SettingsScreen extends ConsumerWidget {
                   children: [
                     _ModeSelector(theme: theme),
                     const SizedBox(height: 20),
+                    Text('Color intensity',
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 12),
+                    const _VariantSelector(),
+                    const SizedBox(height: 20),
                     Text('Color theme',
                         style: theme.textTheme.titleSmall
                             ?.copyWith(fontWeight: FontWeight.w700)),
@@ -100,6 +106,41 @@ class _ModeSelector extends ConsumerWidget {
         showSelectedIcon: false,
         onSelectionChanged: (s) =>
             ref.read(themeModeProvider.notifier).select(s.first),
+      ),
+    );
+  }
+}
+
+// -------------------------------------------------------------- scheme variant
+/// How strongly the seed colours are expressed in the derived scheme
+/// (ColorScheme.fromSeed's dynamicSchemeVariant).
+class _VariantSelector extends ConsumerWidget {
+  const _VariantSelector();
+
+  static const _labels = <DynamicSchemeVariant, (String, IconData)>{
+    DynamicSchemeVariant.tonalSpot: ('Tonal', Icons.blur_circular),
+    DynamicSchemeVariant.vibrant: ('Vibrant', Icons.water_drop_outlined),
+    DynamicSchemeVariant.expressive: ('Expressive', Icons.brush_outlined),
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final variant = ref.watch(schemeVariantProvider);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SegmentedButton<DynamicSchemeVariant>(
+        segments: [
+          for (final v in schemeVariants)
+            ButtonSegment(
+              value: v,
+              label: Text(_labels[v]!.$1),
+              icon: Icon(_labels[v]!.$2, size: 18),
+            ),
+        ],
+        selected: {variant},
+        showSelectedIcon: false,
+        onSelectionChanged: (s) =>
+            ref.read(schemeVariantProvider.notifier).select(s.first),
       ),
     );
   }
