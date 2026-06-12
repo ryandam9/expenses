@@ -6,8 +6,9 @@ import '../providers/nav_provider.dart';
 import '../providers/theme_provider.dart';
 
 /// App frame: a branded sidebar (logo, navigation, theme toggle) next to the
-/// active screen. Navigation state lives in [navIndexProvider] so it survives
-/// shell remounts (e.g. when the theme changes).
+/// active screen. Both screens stay mounted in an [IndexedStack] so switching
+/// away and back never loses in-progress state (filters, search, table page,
+/// scroll positions).
 class MainShell extends ConsumerWidget {
   const MainShell({super.key});
 
@@ -21,23 +22,13 @@ class MainShell extends ConsumerWidget {
         children: [
           const _Sidebar(),
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 240),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeIn,
-              transitionBuilder: (child, anim) => FadeTransition(
-                opacity: anim,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 0.012),
-                    end: Offset.zero,
-                  ).animate(anim),
-                  child: child,
-                ),
-              ),
-              child: selectedIndex == 0
-                  ? const DashboardScreen(key: ValueKey('dashboard'))
-                  : const SettingsScreen(key: ValueKey('settings')),
+            child: IndexedStack(
+              index: selectedIndex,
+              sizing: StackFit.expand,
+              children: const [
+                DashboardScreen(),
+                SettingsScreen(),
+              ],
             ),
           ),
         ],

@@ -44,6 +44,28 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
   Future<void> _loadOptions() async {
     try {
       final years = await _db.getYears();
+      // If a period is already applied (the panel was remounted, e.g. after
+      // visiting another screen), restore the controls from it instead of
+      // resetting the user's selection.
+      final existing = ref.read(filterProvider);
+      final restored = _restoreFromFilter(existing, years);
+      if (restored != null) {
+        final (mode, year, month) = restored;
+        final months = year == null ? <int>[] : await _monthsForYear(year);
+        if (!mounted) return;
+        setState(() {
+          _error = null;
+          _years = years;
+          _months = months;
+          _mode = mode;
+          _selYear = year;
+          _selMonth = month;
+        });
+        // The filter itself is untouched, so the change listener won't fire;
+        // refresh the category list for the period explicitly.
+        _loadPeriodCategories(existing);
+        return;
+      }
       final first = years.isNotEmpty ? years.first : null;
       final months =
           first == null ? <int>[] : await _monthsForYear(first);
@@ -65,6 +87,31 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
           ? 'No data source configured yet.'
           : 'Could not read the database.');
     }
+  }
+
+  /// Maps an already-applied date range back onto the panel's controls:
+  /// `YYYY-01-01..YYYY-12-31` → that year / whole year, a calendar month's
+  /// exact span → that year and month, anything else → custom mode. Returns
+  /// null when no period is applied (first launch), in which case the default
+  /// selection is applied instead.
+  (String, String?, int)? _restoreFromFilter(AppFilter f, List<String> years) {
+    final s = f.startDate;
+    final e = f.endDate;
+    if (s == null || e == null) return null;
+    final year = s.length >= 4 ? s.substring(0, 4) : null;
+    if (year != null && years.contains(year)) {
+      if (s == '$year-01-01' && e == '$year-12-31') {
+        return ('monthly', year, 0);
+      }
+      for (var m = 1; m <= 12; m++) {
+        final mm = m.toString().padLeft(2, '0');
+        if (s == '$year-$mm-01' &&
+            e == '$year-$mm-${_lastDay(int.parse(year), m)}') {
+          return ('monthly', year, m);
+        }
+      }
+    }
+    return ('custom', null, 0);
   }
 
   Future<List<int>> _monthsForYear(String year) async {
