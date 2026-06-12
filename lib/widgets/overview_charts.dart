@@ -474,10 +474,7 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                                   child: SizedBox(
                                     width: slotWidth - 8,
                                     child: Text(
-                                      entries[i]
-                                          .key
-                                          .replaceAll('-', ' ')
-                                          .toLowerCase(),
+                                      prettyCategory(entries[i].key),
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                           fontSize: 10.5,
@@ -595,7 +592,7 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                 ),
                 Text(
                   _touchedPie >= 0 && _touchedPie < entries.length
-                      ? '${entries[_touchedPie].key.replaceAll('-', ' ').toLowerCase()} '
+                      ? '${prettyCategory(entries[_touchedPie].key)} '
                           '· ${(entries[_touchedPie].value / total * 100).toStringAsFixed(1)}%'
                       : 'total',
                   textAlign: TextAlign.center,
@@ -682,7 +679,7 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
             // right next to the label instead of across a wide gap.
             SizedBox(
               width: 148,
-              child: Text(e.key.replaceAll('-', ' ').toLowerCase(),
+              child: Text(prettyCategory(e.key),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

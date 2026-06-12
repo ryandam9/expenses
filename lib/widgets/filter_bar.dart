@@ -8,6 +8,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../providers/theme_provider.dart';
 import '../theme/app_themes.dart';
 import '../utils/category_icons.dart';
+import '../utils/format.dart';
 
 /// Persistent vertical filter sidebar: period selection (monthly or custom)
 /// plus a multi-select category checklist scoped to the selected period.
@@ -493,7 +494,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
         else
           ..._categories.map((c) => _categoryTile(
                 theme,
-                label: c.replaceAll('-', ' ').toLowerCase(),
+                label: prettyCategory(c),
                 icon: categoryIcon(c),
                 dot: _categoryColor(c),
                 value: filter.allCategories || filter.categories.contains(c),

@@ -846,7 +846,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             const SizedBox(width: 5),
             Flexible(
               child: Text(
-                category.replaceAll('-', ' ').toLowerCase(),
+                prettyCategory(category),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -947,7 +947,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               _detailRow(theme, 'Description', tx.description),
               _detailRow(theme, 'Date', _fmtDate(tx.date)),
               _detailRow(theme, 'Category',
-                  tx.category.replaceAll('-', ' ').toLowerCase()),
+                  prettyCategory(tx.category)),
               _detailRow(theme, 'Bank', tx.source),
               if (tx.debit > 0)
                 _detailRow(theme, 'Debit', currency2.format(tx.debit)),
