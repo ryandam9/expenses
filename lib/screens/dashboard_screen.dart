@@ -139,14 +139,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.download_rounded),
-            tooltip: _section == 'overview'
-                ? 'Export category summary (CSV)'
-                : 'Export transactions (CSV)',
-            onPressed: async.hasValue
-                ? () => _exportCsv(async.requireValue.transactions)
-                : null,
+          // MenuAnchor (with Material 3 open/close animations as of Flutter
+          // 3.44) so both exports are reachable from either section.
+          MenuAnchor(
+            menuChildren: [
+              MenuItemButton(
+                leadingIcon: const Icon(Icons.table_rows, size: 18),
+                onPressed: async.hasValue
+                    ? () => _exportCsv(async.requireValue.transactions,
+                        overview: false)
+                    : null,
+                child: const Text('Export transactions (CSV)'),
+              ),
+              MenuItemButton(
+                leadingIcon: const Icon(Icons.donut_small_outlined, size: 18),
+                onPressed: async.hasValue
+                    ? () => _exportCsv(async.requireValue.transactions,
+                        overview: true)
+                    : null,
+                child: const Text('Export category summary (CSV)'),
+              ),
+            ],
+            builder: (context, controller, _) => IconButton(
+              icon: const Icon(Icons.download_rounded),
+              tooltip: 'Export…',
+              onPressed: () =>
+                  controller.isOpen ? controller.close() : controller.open(),
+            ),
           ),
           const SizedBox(width: 4),
         ],
@@ -239,10 +258,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   // ------------------------------------------------------------------ export
-  // Writes the current view to a CSV chosen via the platform's save dialog.
-  Future<void> _exportCsv(List<Expense> all) async {
+  // Writes the chosen view to a CSV picked via the platform's save dialog.
+  Future<void> _exportCsv(List<Expense> all, {required bool overview}) async {
     try {
-      final overview = _section == 'overview';
       final filtered = _filtered(all);
       final content = overview
           ? categorySummaryToCsv(debitTotalsBy(filtered, (e) => e.category))
@@ -356,8 +374,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final up = pct >= 0;
     final good = up == upIsGood;
     final color = good ? Colors.green.shade700 : theme.colorScheme.error;
+    // `.min` is a Dart 3.10 dot shorthand for MainAxisSize.min.
     return Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: .min,
       children: [
         Icon(up ? Icons.arrow_drop_up : Icons.arrow_drop_down,
             size: 16, color: color),
@@ -410,8 +429,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: .start,
+                mainAxisSize: .min,
                 children: [
                   Text(value,
                       maxLines: 1,
@@ -529,24 +548,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final sorted = List<Expense>.from(list);
     double amt(Expense e) => e.debit > 0 ? -e.debit : e.credit;
     int cmp(Expense a, Expense b) {
-      int r;
-      switch (_sortKey) {
-        case 'description':
-          r = a.description.toLowerCase().compareTo(b.description.toLowerCase());
-          break;
-        case 'bank':
-          r = a.source.toLowerCase().compareTo(b.source.toLowerCase());
-          break;
-        case 'category':
-          r = a.category.toLowerCase().compareTo(b.category.toLowerCase());
-          break;
-        case 'amount':
-          r = amt(a).compareTo(amt(b));
-          break;
-        case 'date':
-        default:
-          r = a.date.compareTo(b.date);
-      }
+      final r = switch (_sortKey) {
+        'description' =>
+          a.description.toLowerCase().compareTo(b.description.toLowerCase()),
+        'bank' => a.source.toLowerCase().compareTo(b.source.toLowerCase()),
+        'category' =>
+          a.category.toLowerCase().compareTo(b.category.toLowerCase()),
+        'amount' => amt(a).compareTo(amt(b)),
+        _ => a.date.compareTo(b.date),
+      };
       return _sortAsc ? r : -r;
     }
 

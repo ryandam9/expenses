@@ -72,14 +72,15 @@ class ExpensesApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeIndex = ref.watch(themeIndexProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final variant = ref.watch(schemeVariantProvider);
     final font = ref.watch(fontFamilyProvider);
     final fontSize = ref.watch(fontSizeProvider);
     final t = appThemes[themeIndex];
 
     final scale = fontSize / 13.0;
 
-    final light = t.themeData(Brightness.light);
-    final dark = t.themeData(Brightness.dark);
+    final light = t.themeData(Brightness.light, variant: variant);
+    final dark = t.themeData(Brightness.dark, variant: variant);
 
     return MaterialApp(
       title: 'Expenses Dashboard',

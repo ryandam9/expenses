@@ -266,15 +266,21 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                 const SizedBox(width: 8),
                 Text('Categories', style: theme.textTheme.titleSmall),
                 const Spacer(),
-                Text(
-                  filter.allCategories
-                      ? 'All'
-                      : (filter.categories.isEmpty
-                          ? 'None'
-                          : '${filter.categories.length}'),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w800, color: cs.primary),
-                ),
+                if (filter.allCategories || filter.categories.isEmpty)
+                  Text(
+                    filter.allCategories ? 'All' : 'None',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                        fontWeight: FontWeight.w800, color: cs.primary),
+                  )
+                else
+                  // Standalone count badge; maxCount (Flutter 3.38) caps the
+                  // label at 99+ if a database ever has that many categories.
+                  Badge.count(
+                    count: filter.categories.length,
+                    maxCount: 99,
+                    backgroundColor: cs.primary,
+                    textColor: cs.onPrimary,
+                  ),
               ],
             ),
           ),
