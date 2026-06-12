@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../theme/app_themes.dart';
 import '../services/database_service.dart';
+import '../providers/dashboard_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/font_provider.dart';
 import '../providers/prefs_provider.dart';
@@ -240,7 +242,6 @@ class _DataSourceControls extends ConsumerWidget {
     // Rebuild when the path changes.
     ref.watch(dbPathProvider);
     final path = DatabaseService().currentPath;
-    final isDefault = DatabaseService.overridePath == null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,18 +264,16 @@ class _DataSourceControls extends ConsumerWidget {
                   size: 18, color: cs.onSurfaceVariant),
               const SizedBox(width: 10),
               Expanded(
-                child: SelectableText(
-                  path,
-                  style: theme.textTheme.bodySmall,
-                ),
+                child: path == null
+                    ? Text('Not configured',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            fontStyle: FontStyle.italic,
+                            color: cs.onSurfaceVariant))
+                    : SelectableText(
+                        path,
+                        style: theme.textTheme.bodySmall,
+                      ),
               ),
-              if (isDefault)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: Text('default',
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant)),
-                ),
             ],
           ),
         ),
@@ -404,13 +403,16 @@ class _TypographyControls extends ConsumerWidget {
 }
 
 // -------------------------------------------------------------------- about
-class _AboutBlock extends StatelessWidget {
+class _AboutBlock extends ConsumerWidget {
   const _AboutBlock();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    // Live count from the configured database ('—' until one is configured).
+    final countAsync = ref.watch(transactionCountProvider);
+    final count = countAsync.hasValue ? countAsync.requireValue : null;
     return Column(
       children: [
         Row(
@@ -441,10 +443,12 @@ class _AboutBlock extends StatelessWidget {
         const SizedBox(height: 16),
         const _AboutRow(
             icon: Icons.storage_rounded, label: 'Data source', value: 'SQLite'),
-        const _AboutRow(
+        _AboutRow(
             icon: Icons.receipt_long_rounded,
             label: 'Transactions',
-            value: '~6,300'),
+            value: count == null
+                ? '—'
+                : NumberFormat.decimalPattern().format(count)),
         const _AboutRow(
             icon: Icons.flutter_dash, label: 'Built with', value: 'Flutter'),
       ],

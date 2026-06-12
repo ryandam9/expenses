@@ -21,9 +21,12 @@ void main() {
     expect(out[1], Colors.green);
   });
 
-  test('every theme exposes a three-colour palette', () {
+  test('every theme exposes a chart palette of distinct colours', () {
     for (final t in appThemes) {
-      expect(t.palette.length, 3, reason: '${t.name} should have 3 seeds');
+      expect(t.palette.length, greaterThanOrEqualTo(4),
+          reason: '${t.name} should have a rich chart palette');
+      expect(t.palette.toSet().length, t.palette.length,
+          reason: '${t.name} palette colours should be distinct');
     }
   });
 }

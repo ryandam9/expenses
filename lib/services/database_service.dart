@@ -4,6 +4,14 @@ import '../models/expense.dart';
 import '../models/app_filter.dart';
 import 'query_builder.dart';
 
+/// Thrown when no database file has been chosen yet (fresh install). The
+/// dashboard recognises this and shows a first-run setup screen instead of a
+/// generic error.
+class DatabaseNotConfiguredException implements Exception {
+  @override
+  String toString() => 'No data source configured';
+}
+
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._();
   factory DatabaseService() => _instance;
@@ -11,14 +19,14 @@ class DatabaseService {
 
   Database? _db;
 
-  static const defaultDbPath =
-      '/home/ravi/Desktop/temp/statements/output/expenses.db';
-
-  /// The path the database is opened from. Set at startup from saved settings
-  /// and changed at runtime via [reopen]; falls back to [defaultDbPath].
+  /// The configured database path. Set at startup from saved settings and
+  /// changed at runtime via [reopen]. Null until the user picks a file.
   static String? overridePath;
 
-  String get currentPath => overridePath ?? defaultDbPath;
+  String? get currentPath => overridePath;
+
+  bool get isConfigured =>
+      overridePath != null && overridePath!.trim().isNotEmpty;
 
   Future<Database> get database async {
     if (_db != null) return _db!;
@@ -28,16 +36,19 @@ class DatabaseService {
 
   Future<Database> _initDb() async {
     final path = currentPath;
-    final file = File(path);
-    final exists = await file.exists();
-    if (!exists) {
+    if (path == null || path.trim().isEmpty) {
+      throw DatabaseNotConfiguredException();
+    }
+    // ':memory:' (used by tests) never exists on disk, so skip the check.
+    if (path != inMemoryDatabasePath && !await File(path).exists()) {
       throw Exception('Database not found at $path');
     }
     return await openDatabase(path);
   }
 
   /// Points the service at a new database file and drops the open connection so
-  /// the next query reopens against [path].
+  /// the next query reopens against [path]. An empty path de-configures the
+  /// service (back to the first-run state).
   Future<void> reopen(String path) async {
     overridePath = path.trim().isEmpty ? null : path.trim();
     await _db?.close();
@@ -50,8 +61,11 @@ class DatabaseService {
 
   List<String> _whereArgs(AppFilter f) => buildWhere(f).args;
 
-  Future<List<Expense>> getExpenses(
-      {int? limit, int? offset, AppFilter? filter}) async {
+  /// All rows matching [filter]. Deliberately unpaginated: the dataset is a
+  /// few thousand rows, and loading it once enables instant client-side
+  /// search/sort/pagination plus in-memory aggregation for the KPIs and
+  /// charts. Revisit (limit/offset) only if datasets grow well beyond that.
+  Future<List<Expense>> getExpenses({AppFilter? filter}) async {
     final db = await database;
     final f = filter ?? const AppFilter();
     final where = _whereClause(f);
@@ -59,20 +73,23 @@ class DatabaseService {
     final rows = await db.query('expenses',
         where: where,
         whereArgs: args.isNotEmpty ? args : null,
-        orderBy: 'date DESC',
-        limit: limit,
-        offset: offset);
+        orderBy: 'date DESC');
     return rows.map((r) => Expense.fromMap(r)).toList();
   }
 
+  /// SUM of debits for [filter]. Kept as a SQL aggregate (rather than derived
+  /// from [getExpenses]) because it is also used for previous-period
+  /// comparisons, where fetching all the rows would be wasteful.
   Future<double> getTotalDebits({AppFilter? filter}) async {
     final db = await database;
     final f = filter ?? const AppFilter();
     final where = _whereClause(f);
     final args = _whereArgs(f);
-    final buf = StringBuffer('SELECT SUM(CAST(debit AS REAL)) as total FROM expenses WHERE CAST(debit AS REAL) > 0');
+    final buf = StringBuffer(
+        'SELECT SUM(CAST(debit AS REAL)) as total FROM expenses WHERE CAST(debit AS REAL) > 0');
     if (where != null) buf.write(' AND $where');
-    final result = await db.rawQuery(buf.toString(), args.isNotEmpty ? args : null);
+    final result =
+        await db.rawQuery(buf.toString(), args.isNotEmpty ? args : null);
     return (result.first['total'] as num?)?.toDouble() ?? 0;
   }
 
@@ -81,9 +98,11 @@ class DatabaseService {
     final f = filter ?? const AppFilter();
     final where = _whereClause(f);
     final args = _whereArgs(f);
-    final buf = StringBuffer('SELECT SUM(CAST(credit AS REAL)) as total FROM expenses WHERE CAST(credit AS REAL) > 0');
+    final buf = StringBuffer(
+        'SELECT SUM(CAST(credit AS REAL)) as total FROM expenses WHERE CAST(credit AS REAL) > 0');
     if (where != null) buf.write(' AND $where');
-    final result = await db.rawQuery(buf.toString(), args.isNotEmpty ? args : null);
+    final result =
+        await db.rawQuery(buf.toString(), args.isNotEmpty ? args : null);
     return (result.first['total'] as num?)?.toDouble() ?? 0;
   }
 
@@ -94,91 +113,9 @@ class DatabaseService {
     final args = _whereArgs(f);
     final buf = StringBuffer('SELECT COUNT(*) as count FROM expenses');
     if (where != null) buf.write(' WHERE $where');
-    final result = await db.rawQuery(buf.toString(), args.isNotEmpty ? args : null);
+    final result =
+        await db.rawQuery(buf.toString(), args.isNotEmpty ? args : null);
     return (result.first['count'] as num).toInt();
-  }
-
-  Future<Map<String, double>> getSpendByCategory({AppFilter? filter}) async {
-    final db = await database;
-    final f = filter ?? const AppFilter();
-    final where = _whereClause(f);
-    final args = _whereArgs(f);
-    final buf = StringBuffer('''
-      SELECT category, SUM(CAST(debit AS REAL)) as total
-      FROM expenses
-      WHERE CAST(debit AS REAL) > 0
-    ''');
-    if (where != null) buf.write(' AND $where');
-    buf.write(' GROUP BY category ORDER BY total DESC');
-    final rows = await db.rawQuery(buf.toString(), args.isNotEmpty ? args : null);
-    return {
-      for (var r in rows)
-        r['category'] as String: (r['total'] as num).toDouble()
-    };
-  }
-
-  Future<Map<String, double>> getMonthlySpending({AppFilter? filter}) async {
-    final db = await database;
-    final f = filter ?? const AppFilter();
-    final where = _whereClause(f);
-    final args = _whereArgs(f);
-    final buf = StringBuffer('''
-      SELECT substr(date, 1, 7) as month, SUM(CAST(debit AS REAL)) as total
-      FROM expenses
-      WHERE CAST(debit AS REAL) > 0
-    ''');
-    if (where != null) buf.write(' AND $where');
-    buf.write(' GROUP BY month ORDER BY month ASC');
-    final rows = await db.rawQuery(buf.toString(), args.isNotEmpty ? args : null);
-    return {
-      for (var r in rows)
-        r['month'] as String: (r['total'] as num).toDouble()
-    };
-  }
-
-  Future<Map<String, double>> getSpendBySource({AppFilter? filter}) async {
-    final db = await database;
-    final f = filter ?? const AppFilter();
-    final where = _whereClause(f);
-    final args = _whereArgs(f);
-    final buf = StringBuffer('''
-      SELECT source, SUM(CAST(debit AS REAL)) as total
-      FROM expenses
-      WHERE CAST(debit AS REAL) > 0
-    ''');
-    if (where != null) buf.write(' AND $where');
-    buf.write(' GROUP BY source ORDER BY total DESC');
-    final rows = await db.rawQuery(buf.toString(), args.isNotEmpty ? args : null);
-    return {
-      for (var r in rows)
-        r['source'] as String: (r['total'] as num).toDouble()
-    };
-  }
-
-  Future<Map<String, int>> getCategoryCount({AppFilter? filter}) async {
-    final db = await database;
-    final f = filter ?? const AppFilter();
-    final where = _whereClause(f);
-    final args = _whereArgs(f);
-    final buf = StringBuffer('''
-      SELECT category, COUNT(*) as count
-      FROM expenses
-      WHERE CAST(debit AS REAL) > 0
-    ''');
-    if (where != null) buf.write(' AND $where');
-    buf.write(' GROUP BY category ORDER BY count DESC');
-    final rows = await db.rawQuery(buf.toString(), args.isNotEmpty ? args : null);
-    return {
-      for (var r in rows)
-        r['category'] as String: (r['count'] as num).toInt()
-    };
-  }
-
-  Future<List<String>> getCategories() async {
-    final db = await database;
-    final rows = await db.rawQuery(
-        'SELECT DISTINCT category FROM expenses WHERE $excludeTransfersClause ORDER BY category');
-    return rows.map((r) => r['category'] as String).toList();
   }
 
   /// Distinct categories that have transactions within the selected period.
@@ -186,29 +123,11 @@ class DatabaseService {
   /// ignored, so the full set of options for the period is returned).
   Future<List<String>> getCategoriesForPeriod({AppFilter? filter}) async {
     final db = await database;
-    final f = filter ?? const AppFilter();
-    final clauses = <String>[excludeTransfersClause];
-    final args = <String>[];
-    if (f.startDate != null) {
-      clauses.add('date >= ?');
-      args.add(f.startDate!);
-    }
-    if (f.endDate != null) {
-      clauses.add('date <= ?');
-      args.add(f.endDate!);
-    }
-    final where = 'WHERE ${clauses.join(' AND ')}';
+    final where = buildDateWhere(filter ?? const AppFilter());
     final rows = await db.rawQuery(
-        'SELECT DISTINCT category FROM expenses $where ORDER BY category',
-        args.isNotEmpty ? args : null);
+        'SELECT DISTINCT category FROM expenses WHERE ${where.clause} ORDER BY category',
+        where.args.isNotEmpty ? where.args : null);
     return rows.map((r) => r['category'] as String).toList();
-  }
-
-  Future<List<String>> getSources() async {
-    final db = await database;
-    final rows = await db.rawQuery(
-        'SELECT DISTINCT source FROM expenses ORDER BY source');
-    return rows.map((r) => r['source'] as String).toList();
   }
 
   Future<List<String>> getYears() async {
@@ -218,6 +137,8 @@ class DatabaseService {
     return rows.map((r) => r['yr'] as String).toList();
   }
 
+  /// Distinct months ('01'..'12') that actually have data in [year], so the
+  /// filter sidebar can hide empty months.
   Future<List<String>> getMonthsForYear(String year) async {
     final db = await database;
     final rows = await db.rawQuery(

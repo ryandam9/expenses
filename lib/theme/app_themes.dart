@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// A single selectable theme. Following the approach used in the companion
-/// `attendance-register` app, a theme is described by just three seed colours
-/// (primary / secondary / tertiary); the full [ThemeData] for either brightness
-/// is derived from them via [ColorScheme.fromSeed]. This keeps every theme
-/// structurally identical and lets light/dark mode follow the system.
+/// A single selectable theme. A theme is described by three seed colours
+/// (primary / secondary / tertiary) — the full [ThemeData] for either
+/// brightness is derived from them via [ColorScheme.fromSeed] — plus a
+/// dedicated chart palette of six hand-picked, mutually distinct colours so
+/// visualisations stay legible no matter how many categories appear.
 class AppTheme {
   final String id;
   final String name;
@@ -13,6 +13,10 @@ class AppTheme {
   final Color secondary;
   final Color tertiary;
 
+  /// Colours used for chart series/segments, ordered for maximum contrast
+  /// between neighbours.
+  final List<Color> chartColors;
+
   const AppTheme({
     required this.id,
     required this.name,
@@ -20,11 +24,12 @@ class AppTheme {
     required this.primary,
     required this.secondary,
     required this.tertiary,
+    required this.chartColors,
   });
 
-  /// The seed colours, used to colour charts and accents so visualisations
-  /// share the theme's identity instead of a generic, off-theme palette.
-  List<Color> get palette => [primary, secondary, tertiary];
+  /// The colours used by charts and ambient accents so visualisations share
+  /// the theme's identity instead of a generic, off-theme palette.
+  List<Color> get palette => chartColors;
 
   ThemeData themeData(Brightness brightness) {
     final scheme = ColorScheme.fromSeed(
@@ -62,6 +67,7 @@ class AppTheme {
           side: BorderSide(color: scheme.outlineVariant, width: 1),
         ),
       ),
+      dividerTheme: DividerThemeData(color: scheme.outlineVariant),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: scheme.surface,
         indicatorColor: scheme.primaryContainer,
@@ -96,6 +102,10 @@ class AppTheme {
       chipTheme: ChipThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
       searchBarTheme: SearchBarThemeData(
         elevation: WidgetStateProperty.all(0),
         shape: WidgetStateProperty.all(
@@ -128,111 +138,152 @@ List<Color> buildChartColors(List<Color> base, int count) {
   return out;
 }
 
-/// The selectable themes — a neutral Default plus a set of Australian-bird
-/// palettes, mirroring the companion attendance-register app.
+/// The selectable themes: a curated set of balanced, modern palettes. Each
+/// keeps a calm primary for chrome and a high-contrast six-colour chart
+/// palette for data.
 const appThemes = <AppTheme>[
   AppTheme(
-    id: 'default',
-    name: 'Default',
-    icon: Icons.dashboard_rounded,
-    primary: Color(0xFF1A73E8),
-    secondary: Color(0xFF5F6368),
-    tertiary: Color(0xFF34A853),
+    id: 'indigo',
+    name: 'Indigo',
+    icon: Icons.auto_awesome,
+    primary: Color(0xFF4F46E5),
+    secondary: Color(0xFF0EA5E9),
+    tertiary: Color(0xFFF59E0B),
+    chartColors: [
+      Color(0xFF4F46E5),
+      Color(0xFF0EA5E9),
+      Color(0xFFF59E0B),
+      Color(0xFF10B981),
+      Color(0xFFEC4899),
+      Color(0xFF8B5CF6),
+    ],
   ),
   AppTheme(
-    id: 'spotted_pardalote',
-    name: 'Spotted Pardalote',
-    icon: Icons.emoji_nature,
-    primary: Color(0xFFCB0300),
-    secondary: Color(0xFFFECA00),
-    tertiary: Color(0xFFD36328),
+    id: 'emerald',
+    name: 'Emerald',
+    icon: Icons.eco,
+    primary: Color(0xFF059669),
+    secondary: Color(0xFF0D9488),
+    tertiary: Color(0xFFF59E0B),
+    chartColors: [
+      Color(0xFF059669),
+      Color(0xFF3B82F6),
+      Color(0xFFF59E0B),
+      Color(0xFF14B8A6),
+      Color(0xFFA855F7),
+      Color(0xFF84CC16),
+    ],
   ),
   AppTheme(
-    id: 'plains_wanderer',
-    name: 'Plains-wanderer',
-    icon: Icons.terrain,
-    primary: Color(0xFFEDD8C5),
-    secondary: Color(0xFFE7AA01),
-    tertiary: Color(0xFFD09A5E),
+    id: 'ocean',
+    name: 'Ocean',
+    icon: Icons.water,
+    primary: Color(0xFF0369A1),
+    secondary: Color(0xFF06B6D4),
+    tertiary: Color(0xFF6366F1),
+    chartColors: [
+      Color(0xFF0369A1),
+      Color(0xFF06B6D4),
+      Color(0xFFF59E0B),
+      Color(0xFF6366F1),
+      Color(0xFF14B8A6),
+      Color(0xFFEC4899),
+    ],
   ),
   AppTheme(
-    id: 'bee_eater',
-    name: 'Rainbow Bee-eater',
-    icon: Icons.flight,
-    primary: Color(0xFF00346E),
-    secondary: Color(0xFFEDD03E),
-    tertiary: Color(0xFF6D8600),
+    id: 'sunset',
+    name: 'Sunset',
+    icon: Icons.wb_twilight,
+    primary: Color(0xFFEA580C),
+    secondary: Color(0xFFDB2777),
+    tertiary: Color(0xFFF59E0B),
+    chartColors: [
+      Color(0xFFEA580C),
+      Color(0xFF8B5CF6),
+      Color(0xFFF59E0B),
+      Color(0xFFDB2777),
+      Color(0xFF0EA5E9),
+      Color(0xFF10B981),
+    ],
   ),
   AppTheme(
-    id: 'rose_crowned_fruit_dove',
-    name: 'Rose-crowned Fruit Dove',
-    icon: Icons.local_florist,
-    primary: Color(0xFFBD338F),
-    secondary: Color(0xFFEB8252),
-    tertiary: Color(0xFF8FA33F),
+    id: 'grape',
+    name: 'Grape',
+    icon: Icons.bubble_chart,
+    primary: Color(0xFF7C3AED),
+    secondary: Color(0xFFC026D3),
+    tertiary: Color(0xFF0EA5E9),
+    chartColors: [
+      Color(0xFF7C3AED),
+      Color(0xFF0EA5E9),
+      Color(0xFFEC4899),
+      Color(0xFFF59E0B),
+      Color(0xFF6366F1),
+      Color(0xFF14B8A6),
+    ],
   ),
   AppTheme(
-    id: 'eastern_rosella',
-    name: 'Eastern Rosella',
-    icon: Icons.park,
-    primary: Color(0xFF2F533C),
-    secondary: Color(0xFFF4C623),
-    tertiary: Color(0xFF2F7AB9),
+    id: 'forest',
+    name: 'Forest',
+    icon: Icons.forest,
+    primary: Color(0xFF15803D),
+    secondary: Color(0xFF65A30D),
+    tertiary: Color(0xFF0D9488),
+    chartColors: [
+      Color(0xFF15803D),
+      Color(0xFFCA8A04),
+      Color(0xFF2563EB),
+      Color(0xFF65A30D),
+      Color(0xFF9333EA),
+      Color(0xFF0D9488),
+    ],
   ),
   AppTheme(
-    id: 'oriole',
-    name: 'Olivaceous Oriole',
-    icon: Icons.wb_sunny,
-    primary: Color(0xFFB8A53F),
-    secondary: Color(0xFFA29EB8),
-    tertiary: Color(0xFFBB5645),
+    id: 'crimson',
+    name: 'Crimson',
+    icon: Icons.local_fire_department,
+    primary: Color(0xFFDC2626),
+    secondary: Color(0xFFF97316),
+    tertiary: Color(0xFFD97706),
+    chartColors: [
+      Color(0xFFDC2626),
+      Color(0xFF0EA5E9),
+      Color(0xFFF59E0B),
+      Color(0xFF7C3AED),
+      Color(0xFF10B981),
+      Color(0xFFF97316),
+    ],
   ),
   AppTheme(
-    id: 'princess_parrot',
-    name: 'Princess Parrot',
-    icon: Icons.pets,
-    primary: Color(0xFF7090C9),
-    secondary: Color(0xFF6EB245),
-    tertiary: Color(0xFFCF2236),
+    id: 'graphite',
+    name: 'Graphite',
+    icon: Icons.tonality,
+    primary: Color(0xFF334155),
+    secondary: Color(0xFF0EA5E9),
+    tertiary: Color(0xFF64748B),
+    chartColors: [
+      Color(0xFF334155),
+      Color(0xFF0EA5E9),
+      Color(0xFFF59E0B),
+      Color(0xFF10B981),
+      Color(0xFFEF4444),
+      Color(0xFF8B5CF6),
+    ],
   ),
   AppTheme(
-    id: 'superb_fairy_wren',
-    name: 'Superb Fairy-wren',
-    icon: Icons.blur_on,
-    primary: Color(0xFFB03F05),
-    secondary: Color(0xFFAA7853),
-    tertiary: Color(0xFF4F3321),
-  ),
-  AppTheme(
-    id: 'cassowary',
-    name: 'Cassowary',
-    icon: Icons.landscape,
-    primary: Color(0xFF0169C4),
-    secondary: Color(0xFFBDA14D),
-    tertiary: Color(0xFFD5114E),
-  ),
-  AppTheme(
-    id: 'yellow_robin',
-    name: 'Eastern Yellow Robin',
-    icon: Icons.light_mode,
-    primary: Color(0xFF979EB9),
-    secondary: Color(0xFFE19E00),
-    tertiary: Color(0xFF85773A),
-  ),
-  AppTheme(
-    id: 'galah',
-    name: 'Galah',
+    id: 'rose',
+    name: 'Rosé',
     icon: Icons.favorite,
-    primary: Color(0xFFD05478),
-    secondary: Color(0xFFE9A7BB),
-    tertiary: Color(0xFF4C5766),
-  ),
-  AppTheme(
-    id: 'blue_winged_kookaburra',
-    name: 'Blue-winged Kookaburra',
-    icon: Icons.thunderstorm,
-    primary: Color(0xFFAD8D9F),
-    secondary: Color(0xFF0B7595),
-    tertiary: Color(0xFFB5EFFB),
+    primary: Color(0xFFE11D48),
+    secondary: Color(0xFFEC4899),
+    tertiary: Color(0xFF8B5CF6),
+    chartColors: [
+      Color(0xFFE11D48),
+      Color(0xFF8B5CF6),
+      Color(0xFF0EA5E9),
+      Color(0xFFF59E0B),
+      Color(0xFFEC4899),
+      Color(0xFF10B981),
+    ],
   ),
 ];
