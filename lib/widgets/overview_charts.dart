@@ -13,10 +13,19 @@ import '../utils/format.dart';
 /// The Overview section: spending-over-time trend, per-category bar chart and
 /// category share donut. All aggregates are computed from [transactions] — the
 /// exact rows on screen — so they always agree with the table and any active
-/// search.
+/// search. Hosts can prepend [leading] widgets to the scroll view and drop the
+/// per-category bar chart via [showCategoryBar] (the category explorer leads
+/// with its own per-transaction chart instead).
 class OverviewCharts extends ConsumerStatefulWidget {
   final List<Expense> transactions;
-  const OverviewCharts({super.key, required this.transactions});
+  final bool showCategoryBar;
+  final List<Widget> leading;
+  const OverviewCharts({
+    super.key,
+    required this.transactions,
+    this.showCategoryBar = true,
+    this.leading = const [],
+  });
 
   @override
   ConsumerState<OverviewCharts> createState() => _OverviewChartsState();
@@ -47,14 +56,17 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        ...widget.leading,
         _sectionTitle(theme, Icons.show_chart, 'Spending Over Time'),
         const SizedBox(height: 10),
         _buildTrendCard(theme),
         const SizedBox(height: 24),
-        _sectionTitle(theme, Icons.bar_chart, 'Spending by Category'),
-        const SizedBox(height: 10),
-        _buildCategoryBarCard(theme),
-        const SizedBox(height: 24),
+        if (widget.showCategoryBar) ...[
+          _sectionTitle(theme, Icons.bar_chart, 'Spending by Category'),
+          const SizedBox(height: 10),
+          _buildCategoryBarCard(theme),
+          const SizedBox(height: 24),
+        ],
         _sectionTitle(theme, Icons.donut_large, 'Category Share'),
         const SizedBox(height: 10),
         _buildCategoryCard(theme),
