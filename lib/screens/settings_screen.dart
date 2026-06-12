@@ -16,10 +16,41 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: Center(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Page header, matching the dashboard's.
+          Container(
+            padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              border: Border(
+                  bottom: BorderSide(color: cs.outlineVariant, width: 1)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Settings',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+                const SizedBox(height: 2),
+                Text('Personalize the dashboard',
+                    style: theme.textTheme.labelSmall
+                        ?.copyWith(color: cs.onSurfaceVariant)),
+              ],
+            ),
+          ),
+          Expanded(child: _buildBody(theme)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody(ThemeData theme) {
+    return Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 880),
           child: ListView(
@@ -72,7 +103,6 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }
@@ -165,7 +195,7 @@ class _ThemeGrid extends ConsumerWidget {
             crossAxisCount: cols,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            mainAxisExtent: 96,
+            mainAxisExtent: 118,
           ),
           itemBuilder: (context, i) => _ThemeCard(
             appTheme: appThemes[i],
@@ -240,6 +270,23 @@ class _ThemeCard extends StatelessWidget {
                             size: 18, color: cs.primary),
                       ),
                     ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // The chart palette this theme will paint data with.
+              Row(
+                children: [
+                  for (final c in appTheme.chartColors) ...[
+                    Container(
+                      width: 9,
+                      height: 9,
+                      decoration: BoxDecoration(
+                        color: c,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                 ],
               ),
               const SizedBox(height: 8),
@@ -461,11 +508,15 @@ class _AboutBlock extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: cs.primaryContainer,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [cs.primary, cs.tertiary],
+                ),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(Icons.monetization_on,
-                  color: cs.onPrimaryContainer, size: 22),
+              child: Icon(Icons.account_balance_wallet_rounded,
+                  color: cs.onPrimary, size: 22),
             ),
             const SizedBox(width: 12),
             Column(
@@ -563,11 +614,28 @@ class _Section extends StatelessWidget {
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(18),
+          // Same elevated, faintly tinted card chrome as the dashboard's
+          // chart cards, so the whole app shares one surface language.
           decoration: BoxDecoration(
-            color: cs.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                cs.surfaceContainerLowest,
+                Color.alphaBlend(cs.primary.withValues(alpha: 0.04),
+                    cs.surfaceContainerLowest),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: cs.outlineVariant),
+            boxShadow: [
+              BoxShadow(
+                color: cs.shadow.withValues(alpha: 0.07),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: child,
         ),

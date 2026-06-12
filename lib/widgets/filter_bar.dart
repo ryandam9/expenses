@@ -4,6 +4,8 @@ import '../models/app_filter.dart';
 import '../services/database_service.dart';
 import '../providers/filter_provider.dart';
 import '../providers/prefs_provider.dart';
+import '../providers/theme_provider.dart';
+import '../theme/app_themes.dart';
 
 /// Persistent vertical filter sidebar: period selection (monthly or custom)
 /// plus a multi-select category checklist scoped to the selected period.
@@ -156,6 +158,27 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  /// Small-caps sidebar section label ("PERIOD", "CATEGORIES").
+  Widget _sectionLabel(ThemeData theme, String text) => Text(
+        text.toUpperCase(),
+        style: theme.textTheme.labelSmall?.copyWith(
+          fontSize: 10,
+          letterSpacing: 1.2,
+          fontWeight: FontWeight.w800,
+          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
+        ),
+      );
+
+  /// Stable per-category accent drawn from the theme's chart palette, using
+  /// the same name hash as the table's category pills so a category keeps one
+  /// colour everywhere in the app.
+  Color _categoryColor(String category) {
+    final palette = appThemes[ref.read(themeIndexProvider)].palette;
+    if (palette.isEmpty) return Theme.of(context).colorScheme.primary;
+    final h = category.codeUnits.fold<int>(0, (s, c) => s + c);
+    return palette[h % palette.length];
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -182,15 +205,24 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 18, 12, 12),
             child: Row(
               children: [
-                Icon(Icons.tune, size: 20, color: cs.primary),
-                const SizedBox(width: 8),
-                Text('Filters', style: theme.textTheme.titleMedium),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.13),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.tune, size: 15, color: cs.primary),
+                ),
+                const SizedBox(width: 9),
+                Text('Filters',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800)),
                 const Spacer(),
                 if (filter.hasAnyFilter)
-                  TextButton(
+                  TextButton.icon(
                     onPressed: () {
                       setState(() {
                         _selYear = null;
@@ -202,7 +234,8 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       minimumSize: const Size(0, 32),
                     ),
-                    child: const Text('Reset', style: TextStyle(fontSize: 12)),
+                    icon: const Icon(Icons.restart_alt_rounded, size: 15),
+                    label: const Text('Reset', style: TextStyle(fontSize: 12)),
                   ),
               ],
             ),
@@ -229,6 +262,10 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                 ),
               ),
             ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 16, 7),
+            child: _sectionLabel(theme, 'Period'),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SegmentedButton<String>(
@@ -259,14 +296,12 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                 ? _buildMonthly(theme)
                 : _buildCustom(theme, filter),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.fromLTRB(18, 0, 16, 0),
             child: Row(
               children: [
-                Icon(Icons.category, size: 18, color: cs.primary),
-                const SizedBox(width: 8),
-                Text('Categories', style: theme.textTheme.titleSmall),
+                _sectionLabel(theme, 'Categories'),
                 const Spacer(),
                 if (filter.allCategories || filter.categories.isEmpty)
                   Text(
@@ -410,6 +445,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
           ..._categories.map((c) => _categoryTile(
                 theme,
                 label: c.replaceAll('-', ' ').toLowerCase(),
+                dot: _categoryColor(c),
                 value: filter.allCategories || filter.categories.contains(c),
                 onChanged: () => notifier.toggleCategory(c, _categories),
               )),
@@ -422,6 +458,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
     required String label,
     required bool? value,
     required VoidCallback onChanged,
+    Color? dot,
     bool tristate = false,
     bool bold = false,
   }) {
@@ -469,6 +506,17 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                           : null),
                 ),
                 const SizedBox(width: 12),
+                if (dot != null) ...[
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: dot,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
                   child: Text(
                     label,

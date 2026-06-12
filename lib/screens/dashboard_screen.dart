@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../services/database_service.dart';
 import '../services/query_builder.dart';
 import '../providers/dashboard_provider.dart';
+import '../providers/filter_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/prefs_provider.dart';
 import '../theme/app_themes.dart';
@@ -32,6 +33,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   String _section = 'transactions';
   String _query = '';
+
+  // Label of the KPI tile currently under the pointer ('' = none); drives the
+  // tile's hover lift.
+  String _hoveredKpi = '';
 
   int _page = 0;
   int _pageSize = 50;
@@ -112,22 +117,86 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final async = ref.watch(dashboardDataProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Expenses'),
-        titleSpacing: 16,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            child: SegmentedButton<String>(
-              segments: const [
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const FilterPanel(),
+          Expanded(
+            child: Column(
+              children: [
+                _buildHeader(theme, async),
+                Expanded(child: _buildBody(theme, async)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Page header: title plus the active period on the left, the section
+  /// switcher and export menu on the right.
+  Widget _buildHeader(ThemeData theme, AsyncValue<DashboardData> async) {
+    final cs = theme.colorScheme;
+    final filter = ref.watch(filterProvider);
+    final period = filter.hasPeriod
+        ? '${_fmtDate(filter.startDate ?? '')}  –  ${_fmtDate(filter.endDate ?? '')}'
+        : 'All time';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        border: Border(bottom: BorderSide(color: cs.outlineVariant, width: 1)),
+      ),
+      child: LayoutBuilder(builder: (context, c) {
+        // On narrow windows the section switcher collapses to icon-only
+        // segments (with tooltips) so the header never overflows.
+        final compact = c.maxWidth < 640;
+        return Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Dashboard',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+                  const SizedBox(height: 2),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.calendar_today_rounded,
+                          size: 11, color: cs.onSurfaceVariant),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(period,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.labelSmall
+                                ?.copyWith(color: cs.onSurfaceVariant)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            SegmentedButton<String>(
+              segments: [
                 ButtonSegment(
                     value: 'transactions',
-                    label: Text('Transactions'),
-                    icon: Icon(Icons.table_rows, size: 16)),
+                    label: compact ? null : const Text('Transactions'),
+                    tooltip: compact ? 'Transactions' : null,
+                    icon: const Icon(Icons.table_rows, size: 16)),
                 ButtonSegment(
                     value: 'overview',
-                    label: Text('Overview'),
-                    icon: Icon(Icons.insights, size: 16)),
+                    label: compact ? null : const Text('Overview'),
+                    tooltip: compact ? 'Overview' : null,
+                    icon: const Icon(Icons.insights, size: 16)),
               ],
               selected: {_section},
               showSelectedIcon: false,
@@ -138,45 +207,39 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
               ),
             ),
-          ),
-          // MenuAnchor (with Material 3 open/close animations as of Flutter
-          // 3.44) so both exports are reachable from either section.
-          MenuAnchor(
-            menuChildren: [
-              MenuItemButton(
-                leadingIcon: const Icon(Icons.table_rows, size: 18),
-                onPressed: async.hasValue
-                    ? () => _exportCsv(async.requireValue.transactions,
-                        overview: false)
-                    : null,
-                child: const Text('Export transactions (CSV)'),
+            const SizedBox(width: 10),
+            // MenuAnchor (with Material 3 open/close animations as of Flutter
+            // 3.44) so both exports are reachable from either section.
+            MenuAnchor(
+              menuChildren: [
+                MenuItemButton(
+                  leadingIcon: const Icon(Icons.table_rows, size: 18),
+                  onPressed: async.hasValue
+                      ? () => _exportCsv(async.requireValue.transactions,
+                          overview: false)
+                      : null,
+                  child: const Text('Export transactions (CSV)'),
+                ),
+                MenuItemButton(
+                  leadingIcon: const Icon(Icons.donut_small_outlined, size: 18),
+                  onPressed: async.hasValue
+                      ? () => _exportCsv(async.requireValue.transactions,
+                          overview: true)
+                      : null,
+                  child: const Text('Export category summary (CSV)'),
+                ),
+              ],
+              builder: (context, controller, _) => IconButton.filledTonal(
+                icon: const Icon(Icons.download_rounded, size: 20),
+                tooltip: 'Export…',
+                onPressed: () =>
+                    controller.isOpen ? controller.close() : controller.open(),
               ),
-              MenuItemButton(
-                leadingIcon: const Icon(Icons.donut_small_outlined, size: 18),
-                onPressed: async.hasValue
-                    ? () => _exportCsv(async.requireValue.transactions,
-                        overview: true)
-                    : null,
-                child: const Text('Export category summary (CSV)'),
-              ),
-            ],
-            builder: (context, controller, _) => IconButton(
-              icon: const Icon(Icons.download_rounded),
-              tooltip: 'Export…',
-              onPressed: () =>
-                  controller.isOpen ? controller.close() : controller.open(),
             ),
-          ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const FilterPanel(),
-          Expanded(child: _buildBody(theme, async)),
-        ],
-      ),
+            const SizedBox(width: 6),
+          ],
+        );
+      }),
     );
   }
 
@@ -186,7 +249,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final data = async.hasValue ? async.requireValue : null;
     if (data != null) return _buildLoaded(theme, data, async.isLoading);
     if (async.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('Loading your transactions…',
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ],
+        ),
+      );
     }
     final err = async.error;
     if (err is DatabaseNotConfiguredException) return _buildSetup(theme);
@@ -390,71 +464,76 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget _kpi(ThemeData theme, double width, String label, String value,
       IconData icon, Color color,
       {Widget? delta}) {
-    return SizedBox(
-      width: width,
-      child: Container(
-        clipBehavior: Clip.antiAlias,
+    final hovered = _hoveredKpi == label;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoveredKpi = label),
+      onExit: (_) => setState(() {
+        if (_hoveredKpi == label) _hoveredKpi = '';
+      }),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        width: width,
+        padding: const EdgeInsets.all(13),
+        // Hovering lifts the tile: it rises a few pixels and its accent
+        // shadow deepens, giving the header a tactile, layered feel.
+        transform: Matrix4.translationValues(0, hovered ? -3 : 0, 0),
         decoration: BoxDecoration(
-          // The tile is washed in its metric's accent colour, with a solid
-          // accent stripe on the left so each KPI has a strong identity.
-          color: Color.alphaBlend(color.withValues(alpha: 0.09),
+          color: Color.alphaBlend(color.withValues(alpha: 0.07),
               theme.colorScheme.surfaceContainerLowest),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.30), width: 1),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+              color: color.withValues(alpha: hovered ? 0.50 : 0.26), width: 1),
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.16),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
+              color: color.withValues(alpha: hovered ? 0.26 : 0.13),
+              blurRadius: hovered ? 24 : 16,
+              offset: Offset(0, hovered ? 10 : 6),
             ),
           ],
         ),
-        child: IntrinsicHeight(
-          child: Row(
-            children: [
-              Container(width: 5, color: color),
-              Expanded(
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(9),
-                        decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        child: Icon(icon, color: color, size: 19),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: .start,
-                          mainAxisSize: .min,
-                          children: [
-                            Text(value,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.3)),
-                            Text(label.toUpperCase(),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                    letterSpacing: 0.6,
-                                    fontWeight: FontWeight.w700,
-                                    color:
-                                        theme.colorScheme.onSurfaceVariant)),
-                            ?delta,
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    color.withValues(alpha: 0.22),
+                    color.withValues(alpha: 0.10),
+                  ],
                 ),
+                borderRadius: BorderRadius.circular(12),
               ),
-            ],
-          ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: .start,
+                mainAxisSize: .min,
+                children: [
+                  Text(label.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                          fontSize: 9.5,
+                          letterSpacing: 0.8,
+                          fontWeight: FontWeight.w800,
+                          color: theme.colorScheme.onSurfaceVariant)),
+                  const SizedBox(height: 1),
+                  Text(value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+                  ?delta,
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -489,11 +568,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final startIndex = _page * _pageSize;
     final pageItems = all.skip(startIndex).take(_pageSize).toList();
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: TextField(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      child: Column(
+        children: [
+          TextField(
             controller: _searchCtrl,
             focusNode: _searchFocus,
             decoration: InputDecoration(
@@ -518,11 +597,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               });
             },
           ),
-        ),
-        Expanded(child: _buildTable(theme, pageItems, startIndex)),
-        _buildPaginationBar(
-            theme, total, startIndex, pageItems.length, pageCount),
-      ],
+          const SizedBox(height: 12),
+          // The table lives in its own elevated card so the data region reads
+          // as one cohesive surface on the tinted canvas.
+          Expanded(
+            child: Container(
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: theme.colorScheme.outlineVariant, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.shadow.withValues(alpha: 0.06),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Expanded(child: _buildTable(theme, pageItems, startIndex)),
+                  _buildPaginationBar(
+                      theme, total, startIndex, pageItems.length, pageCount),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -626,28 +730,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _tableHeader(ThemeData theme) {
     final cs = theme.colorScheme;
-    final onPrimary = cs.onPrimary;
+    // A quiet, toned header (modern data-table style); the active sort column
+    // is picked out in the primary colour instead of a loud band.
     return Container(
       height: 42,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      // A subtle primary→secondary sweep instead of a flat block of colour.
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [cs.primary, Color.lerp(cs.primary, cs.secondary, 0.55)!],
+        color: cs.surfaceContainerHigh.withValues(alpha: 0.55),
+        border: Border(
+          bottom: BorderSide(color: cs.outlineVariant, width: 1),
         ),
       ),
       child: Row(
         children: [
           for (var i = 0; i < _columns.length; i++) ...[
-            _headerCell(theme, i, onPrimary),
-            _resizeHandle(i, onPrimary),
+            _headerCell(theme, i),
+            _resizeHandle(i, cs.outline.withValues(alpha: 0.45)),
           ],
         ],
       ),
     );
   }
 
-  Widget _headerCell(ThemeData theme, int i, Color onPrimary) {
+  Widget _headerCell(ThemeData theme, int i) {
+    final cs = theme.colorScheme;
     final c = _columns[i];
     final key = c.$4;
     final active = key != null && key == _sortKey;
@@ -658,8 +764,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       style: TextStyle(
         fontWeight: FontWeight.w800,
         fontSize: 11,
-        letterSpacing: 0.5,
-        color: active ? onPrimary : onPrimary.withValues(alpha: 0.85),
+        letterSpacing: 0.6,
+        color: active ? cs.primary : cs.onSurfaceVariant,
       ),
     );
     final content = Row(
@@ -675,7 +781,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward)
                 : Icons.unfold_more,
             size: 13,
-            color: active ? onPrimary : onPrimary.withValues(alpha: 0.5),
+            color: active
+                ? cs.primary
+                : cs.onSurfaceVariant.withValues(alpha: 0.55),
           ),
         ],
       ],
@@ -690,7 +798,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   // A draggable grip occupying the inter-column gap. Drag to resize the column
   // to its left; double-tap to reset it to the default width.
-  Widget _resizeHandle(int i, Color onPrimary) {
+  Widget _resizeHandle(int i, Color gripColor) {
     return MouseRegion(
       cursor: SystemMouseCursors.resizeColumn,
       child: GestureDetector(
@@ -711,7 +819,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 child: Container(
                   width: 1.5,
                   height: 16,
-                  color: onPrimary.withValues(alpha: 0.3),
+                  color: gripColor,
                 ),
               ),
             ),
@@ -905,7 +1013,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
+        color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.7),
         border: Border(
           top: BorderSide(color: theme.colorScheme.outlineVariant, width: 1),
         ),
@@ -987,11 +1095,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.folder_open_rounded,
-                  size: 56, color: theme.colorScheme.primary),
-              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      theme.colorScheme.primary.withValues(alpha: 0.16),
+                      theme.colorScheme.tertiary.withValues(alpha: 0.10),
+                    ],
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.folder_open_rounded,
+                    size: 44, color: theme.colorScheme.primary),
+              ),
+              const SizedBox(height: 18),
               Text('Choose your expenses database',
-                  style: theme.textTheme.titleMedium),
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               Text(
                   'Point the app at the SQLite file that contains your '
