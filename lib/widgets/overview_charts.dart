@@ -8,10 +8,10 @@ import '../services/query_builder.dart';
 import '../theme/app_themes.dart';
 import '../utils/format.dart';
 
-/// The Overview section: spending-over-time trend, per-category bar chart,
-/// per-bank breakdown and category share donut. All aggregates are computed
-/// from [transactions] — the exact rows on screen — so they always agree with
-/// the table and any active search.
+/// The Overview section: spending-over-time trend, per-category bar chart and
+/// category share donut. All aggregates are computed from [transactions] — the
+/// exact rows on screen — so they always agree with the table and any active
+/// search.
 class OverviewCharts extends ConsumerStatefulWidget {
   final List<Expense> transactions;
   const OverviewCharts({super.key, required this.transactions});
@@ -21,9 +21,15 @@ class OverviewCharts extends ConsumerStatefulWidget {
 }
 
 class _OverviewChartsState extends ConsumerState<OverviewCharts> {
-  // Index of the donut slice currently under the pointer (-1 = none). Drives
-  // the slice "pop" and the live readout in the donut's centre.
+  // Index of the donut slice currently highlighted (-1 = none). Set by
+  // hovering either the donut itself or its legend rows, and drives the slice
+  // "pop", the legend row tint and the live readout in the donut's centre.
   int _touchedPie = -1;
+
+  // Shared implicit-animation settings for all fl_chart widgets, so charts
+  // ease into place on load and morph smoothly when the filter changes.
+  static const _chartAnim = Duration(milliseconds: 500);
+  static const _chartCurve = Curves.easeOutCubic;
 
   /// Chart colours drawn from the active theme's chart palette, so the
   /// visualisations share the rest of the app's colour identity.
@@ -36,64 +42,22 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // On wide desktop windows, pair the category and bank breakdowns side by
-    // side so cards don't stretch into wide, empty bands.
-    return LayoutBuilder(builder: (context, c) {
-      final wide = c.maxWidth >= 1080;
-      return ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _sectionTitle(theme, Icons.show_chart, 'Spending Over Time'),
-          const SizedBox(height: 10),
-          _buildTrendCard(theme),
-          const SizedBox(height: 24),
-          if (wide)
-            Row(
-              crossAxisAlignment: .start,
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    crossAxisAlignment: .start,
-                    children: [
-                      _sectionTitle(
-                          theme, Icons.bar_chart, 'Spending by Category'),
-                      const SizedBox(height: 10),
-                      _buildCategoryBarCard(theme),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    crossAxisAlignment: .start,
-                    children: [
-                      _sectionTitle(
-                          theme, Icons.account_balance, 'Spending by Bank'),
-                      const SizedBox(height: 10),
-                      _buildBankCard(theme),
-                    ],
-                  ),
-                ),
-              ],
-            )
-          else ...[
-            _sectionTitle(theme, Icons.bar_chart, 'Spending by Category'),
-            const SizedBox(height: 10),
-            _buildCategoryBarCard(theme),
-            const SizedBox(height: 24),
-            _sectionTitle(theme, Icons.account_balance, 'Spending by Bank'),
-            const SizedBox(height: 10),
-            _buildBankCard(theme),
-          ],
-          const SizedBox(height: 24),
-          _sectionTitle(theme, Icons.donut_large, 'Category Share'),
-          const SizedBox(height: 10),
-          _buildCategoryCard(theme),
-        ],
-      );
-    });
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _sectionTitle(theme, Icons.show_chart, 'Spending Over Time'),
+        const SizedBox(height: 10),
+        _buildTrendCard(theme),
+        const SizedBox(height: 24),
+        _sectionTitle(theme, Icons.bar_chart, 'Spending by Category'),
+        const SizedBox(height: 10),
+        _buildCategoryBarCard(theme),
+        const SizedBox(height: 24),
+        _sectionTitle(theme, Icons.donut_large, 'Category Share'),
+        const SizedBox(height: 10),
+        _buildCategoryCard(theme),
+      ],
+    );
   }
 
   Widget _sectionTitle(ThemeData theme, IconData icon, String title) {
@@ -103,7 +67,12 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
         Container(
           padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: 0.14),
+            gradient: LinearGradient(
+              colors: [
+                cs.primary.withValues(alpha: 0.18),
+                cs.tertiary.withValues(alpha: 0.14),
+              ],
+            ),
             borderRadius: BorderRadius.circular(9),
           ),
           child: Icon(icon, size: 16, color: cs.primary),
@@ -116,11 +85,32 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     );
   }
 
-  BoxDecoration _cardDecoration(ThemeData theme) => BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
-      );
+  /// Card chrome shared by every chart: a faintly primary-tinted surface with
+  /// a soft drop shadow so the cards lift off the ambient background instead
+  /// of sitting flat on it.
+  BoxDecoration _cardDecoration(ThemeData theme) {
+    final cs = theme.colorScheme;
+    return BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          cs.surfaceContainerLowest,
+          Color.alphaBlend(
+              cs.primary.withValues(alpha: 0.04), cs.surfaceContainerLowest),
+        ],
+      ),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: cs.outlineVariant, width: 1),
+      boxShadow: [
+        BoxShadow(
+          color: cs.shadow.withValues(alpha: 0.07),
+          blurRadius: 22,
+          offset: const Offset(0, 8),
+        ),
+      ],
+    );
+  }
 
   Widget _emptyCard(ThemeData theme, IconData icon, String msg) {
     return Container(
@@ -135,6 +125,34 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
           Icon(icon, color: theme.colorScheme.outline),
           const SizedBox(width: 12),
           Text(msg, style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+        ],
+      ),
+    );
+  }
+
+  /// Small labelled figure ("AVG / MONTH  $1.2k") for the trend card header.
+  Widget _miniStat(ThemeData theme, String label, String value) {
+    final cs = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: cs.outlineVariant, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label.toUpperCase(),
+              style: theme.textTheme.labelSmall?.copyWith(
+                  fontSize: 9,
+                  letterSpacing: 0.6,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurfaceVariant)),
+          Text(value,
+              style: theme.textTheme.labelLarge
+                  ?.copyWith(fontWeight: FontWeight.w800)),
         ],
       ),
     );
@@ -177,12 +195,14 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     }
     final maxY = series.map((e) => e.value).reduce((a, b) => a > b ? a : b);
     final totalSpend = series.fold<double>(0, (s, e) => s + e.value);
+    final avgSpend = totalSpend / series.length;
     final spots = [
       for (var i = 0; i < series.length; i++)
         FlSpot(i.toDouble(), series[i].value)
     ];
     final lineColor = cs.primary;
     final labelStep = (series.length / 6).ceil().clamp(1, series.length);
+    final periodWord = monthly ? 'month' : 'day';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 18, 18, 14),
@@ -197,12 +217,17 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                   style: theme.textTheme.titleLarge
                       ?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text('total spend · ${monthly ? 'by month' : 'by day'}',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant)),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Text('total spend · by $periodWord',
+                      style: theme.textTheme.labelSmall
+                          ?.copyWith(color: cs.onSurfaceVariant)),
+                ),
               ),
+              _miniStat(theme, 'avg / $periodWord', compactMoney(avgSpend)),
+              const SizedBox(width: 8),
+              _miniStat(theme, 'peak $periodWord', compactMoney(maxY)),
             ],
           ),
           const SizedBox(height: 18),
@@ -210,8 +235,10 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
             label: 'Line chart of spending over time, total '
                 '${compactMoney(totalSpend)}',
             child: SizedBox(
-              height: 240,
+              height: 260,
               child: LineChart(
+                duration: _chartAnim,
+                curve: _chartCurve,
                 LineChartData(
                   minY: 0,
                   maxY: maxY <= 0 ? 1 : maxY * 1.15,
@@ -326,7 +353,10 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
   // ------------------------------------------------------------- category bar
   // A straightforward bar chart: one bar per category (X) sized by its total
   // spend (Y). Categories are ordered high-to-low so the ranking reads at a
-  // glance; bars take the category's own colour from the chart palette.
+  // glance; bars take the category's own colour from the chart palette. The
+  // chart always fills the card's full width; when there are too many
+  // categories to fit comfortably it grows and scrolls horizontally instead
+  // of squeezing the bars.
   Widget _buildCategoryBarCard(ThemeData theme) {
     final cs = theme.colorScheme;
     final byCategory = debitTotalsBy(widget.transactions, (e) => e.category);
@@ -337,28 +367,32 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     final maxVal = entries.first.value;
     final colors = _colors(entries.length);
     // Extra headroom so the always-on value labels above the bars never clip.
-    final maxY = maxVal <= 0 ? 1.0 : maxVal * 1.28;
-    // Keep bars readable: give each one breathing room and let the card scroll
-    // horizontally when there are many categories.
-    final chartWidth = (entries.length * 64).toDouble();
+    final maxY = maxVal <= 0 ? 1.0 : maxVal * 1.22;
+    // Minimum room per category: a fat bar plus an un-truncated two-line
+    // label underneath.
+    const slotWidth = 104.0;
+    final minChartWidth = entries.length * slotWidth;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 18, 16, 8),
+      padding: const EdgeInsets.fromLTRB(10, 20, 18, 12),
       decoration: _cardDecoration(theme),
       child: Semantics(
         label: 'Bar chart of total spending by category',
         child: SizedBox(
-          height: 300,
+          height: 380,
           child: LayoutBuilder(
             builder: (context, c) {
-              final width = chartWidth < c.maxWidth ? c.maxWidth : chartWidth;
+              final width =
+                  minChartWidth < c.maxWidth ? c.maxWidth : minChartWidth;
               return Scrollbar(
-                thumbVisibility: chartWidth > c.maxWidth,
+                thumbVisibility: minChartWidth > c.maxWidth,
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: SizedBox(
                     width: width,
                     child: BarChart(
+                      duration: _chartAnim,
+                      curve: _chartCurve,
                       BarChartData(
                         alignment: BarChartAlignment.spaceAround,
                         maxY: maxY,
@@ -370,14 +404,14 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                           touchTooltipData: BarTouchTooltipData(
                             getTooltipColor: (_) => Colors.transparent,
                             tooltipPadding: EdgeInsets.zero,
-                            tooltipMargin: 4,
+                            tooltipMargin: 6,
                             getTooltipItem: (group, _, rod, _) =>
                                 BarTooltipItem(
                               compactMoney(rod.toY),
                               TextStyle(
-                                  color: cs.onSurfaceVariant,
+                                  color: cs.onSurface,
                                   fontWeight: FontWeight.w800,
-                                  fontSize: 9.5),
+                                  fontSize: 11),
                             ),
                           ),
                         ),
@@ -389,9 +423,9 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                                 barRods: [
                                   BarChartRodData(
                                     toY: entries[i].value,
-                                    width: 26,
+                                    width: 46,
                                     borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(7)),
+                                        top: Radius.circular(10)),
                                     gradient: LinearGradient(
                                       begin: Alignment.bottomCenter,
                                       end: Alignment.topCenter,
@@ -424,29 +458,32 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                           bottomTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
-                              reservedSize: 56,
+                              reservedSize: 44,
                               getTitlesWidget: (v, _) {
                                 final i = v.toInt();
                                 if (i < 0 || i >= entries.length) {
                                   return const SizedBox();
                                 }
+                                // Horizontal, two-line labels: with a full
+                                // slot's width available, names render whole
+                                // instead of rotated and clipped.
                                 return Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Transform.rotate(
-                                    angle: -0.5,
-                                    child: SizedBox(
-                                      width: 58,
-                                      child: Text(
-                                        entries[i]
-                                            .key
-                                            .replaceAll('-', ' ')
-                                            .toLowerCase(),
-                                        style: const TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w600),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: SizedBox(
+                                    width: slotWidth - 8,
+                                    child: Text(
+                                      entries[i]
+                                          .key
+                                          .replaceAll('-', ' ')
+                                          .toLowerCase(),
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                          fontSize: 10.5,
+                                          height: 1.2,
+                                          fontWeight: FontWeight.w600,
+                                          color: cs.onSurfaceVariant),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                 );
@@ -478,94 +515,6 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     );
   }
 
-  // --------------------------------------------------------------------- bank
-  // Horizontal bars, one per bank/source, sized relative to the biggest
-  // spender. Simple rows rather than a chart: with a handful of banks this is
-  // easier to read and to select/copy from.
-  Widget _buildBankCard(ThemeData theme) {
-    final cs = theme.colorScheme;
-    final bySource = debitTotalsBy(widget.transactions, (e) => e.source);
-    if (bySource.isEmpty) {
-      return _emptyCard(
-          theme, Icons.account_balance, 'No expense data for this filter');
-    }
-    final entries = bySource.entries.toList();
-    final maxVal = entries.first.value;
-    final total = entries.fold<double>(0, (s, e) => s + e.value);
-    final colors = _colors(entries.length);
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: _cardDecoration(theme),
-      child: Semantics(
-        label: 'Spending by bank, total ${compactMoney(total)}',
-        child: SelectionArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < entries.length; i++)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 120,
-                        child: Text(entries[i].key,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w600)),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(5),
-                          child: Stack(
-                            children: [
-                              Container(
-                                  height: 18, color: cs.surfaceContainerHigh),
-                              FractionallySizedBox(
-                                widthFactor: maxVal <= 0
-                                    ? 0
-                                    : (entries[i].value / maxVal)
-                                        .clamp(0.0, 1.0),
-                                child: Container(
-                                    height: 18, color: colors[i]),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 70,
-                        child: Text(compactMoney(entries[i].value),
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                                fontSize: 12.5, fontWeight: FontWeight.w700)),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: 48,
-                        child: Text(
-                            total == 0
-                                ? '—'
-                                : '${(entries[i].value / total * 100).toStringAsFixed(1)}%',
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: cs.onSurfaceVariant)),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   // -------------------------------------------------------------------- donut
   Widget _buildCategoryCard(ThemeData theme) {
     final byCategory = debitTotalsBy(widget.transactions, (e) => e.category);
@@ -580,15 +529,17 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     final donut = Semantics(
       label: 'Donut chart of category share, total ${compactMoney(total)}',
       child: SizedBox(
-        width: 248,
-        height: 248,
+        width: 340,
+        height: 340,
         child: Stack(
           alignment: Alignment.center,
           children: [
             PieChart(
+              duration: _chartAnim,
+              curve: _chartCurve,
               PieChartData(
-                sectionsSpace: 2.5,
-                centerSpaceRadius: 64,
+                sectionsSpace: 3,
+                centerSpaceRadius: 86,
                 startDegreeOffset: -90,
                 pieTouchData: PieTouchData(
                   touchCallback: (event, resp) {
@@ -608,16 +559,16 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                     PieChartSectionData(
                       value: entries[i].value,
                       color: colors[i],
-                      radius: _touchedPie == i ? 42 : 34,
+                      radius: _touchedPie == i ? 72 : 62,
                       // Label the slices big enough to fit a readable
                       // percentage; thin slivers stay clean and rely on the
                       // legend instead.
-                      showTitle: total > 0 && entries[i].value / total >= 0.06,
+                      showTitle: total > 0 && entries[i].value / total >= 0.05,
                       title:
                           '${(entries[i].value / total * 100).round()}%',
-                      titlePositionPercentageOffset: 0.58,
+                      titlePositionPercentageOffset: 0.62,
                       titleStyle: const TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
                         shadows: [
@@ -628,25 +579,25 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                 ],
               ),
             ),
+            // Centre readout: hovering a slice (or legend row) swaps the
+            // grand total for that category's share and amount.
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   _touchedPie >= 0 && _touchedPie < entries.length
-                      ? '${(entries[_touchedPie].value / total * 100).toStringAsFixed(1)}%'
+                      ? compactMoney(entries[_touchedPie].value)
                       : compactMoney(total),
-                  style: theme.textTheme.titleLarge
+                  style: theme.textTheme.headlineSmall
                       ?.copyWith(fontWeight: FontWeight.w800),
                 ),
                 Text(
                   _touchedPie >= 0 && _touchedPie < entries.length
-                      ? entries[_touchedPie]
-                          .key
-                          .replaceAll('-', ' ')
-                          .toLowerCase()
+                      ? '${entries[_touchedPie].key.replaceAll('-', ' ').toLowerCase()} '
+                          '· ${(entries[_touchedPie].value / total * 100).toStringAsFixed(1)}%'
                       : 'total',
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.labelSmall
+                  style: theme.textTheme.labelMedium
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
@@ -671,7 +622,7 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
       decoration: _cardDecoration(theme),
       child: LayoutBuilder(
         builder: (context, c) {
-          if (c.maxWidth < 560) {
+          if (c.maxWidth < 680) {
             return Column(
               children: [donut, const SizedBox(height: 16), legend],
             );
@@ -680,7 +631,7 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               donut,
-              const SizedBox(width: 24),
+              const SizedBox(width: 28),
               Expanded(child: legend),
             ],
           );
@@ -694,59 +645,77 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     final cs = theme.colorScheme;
     final pct = total == 0 ? 0.0 : e.value / total;
     final active = _touchedPie == i;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: active ? color.withValues(alpha: 0.10) : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(e.key.replaceAll('-', ' ').toLowerCase(),
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 60,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: pct,
-                minHeight: 6,
-                backgroundColor: cs.surfaceContainerHigh,
+    // Hovering a row highlights the matching donut slice (and vice versa), so
+    // the two halves of the card read as one linked visualisation.
+    return MouseRegion(
+      onEnter: (_) => setState(() => _touchedPie = i),
+      onExit: (_) => setState(() {
+        if (_touchedPie == i) _touchedPie = -1;
+      }),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? color.withValues(alpha: 0.10) : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 13,
+              height: 13,
+              decoration: BoxDecoration(
                 color: color,
+                borderRadius: BorderRadius.circular(4),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Text('${(pct * 100).toStringAsFixed(1)}%',
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurfaceVariant)),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 72,
-            child: Text(compactMoney(e.value),
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                    fontSize: 12.5, fontWeight: FontWeight.w700)),
-          ),
-        ],
+            const SizedBox(width: 10),
+            // Fixed-width name keeps every bar starting on the same axis,
+            // right next to the label instead of across a wide gap.
+            SizedBox(
+              width: 148,
+              child: Text(e.key.replaceAll('-', ' ').toLowerCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
+            ),
+            const SizedBox(width: 12),
+            // The share bar takes all remaining width, so the amount each
+            // category represents is the dominant visual in the row.
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: pct,
+                  minHeight: 12,
+                  backgroundColor: cs.surfaceContainerHigh,
+                  color: color,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 76,
+              child: Text(compactMoney(e.value),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w800)),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 50,
+              child: Text('${(pct * 100).toStringAsFixed(1)}%',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurfaceVariant)),
+            ),
+          ],
+        ),
       ),
     );
   }
