@@ -423,7 +423,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           letterSpacing: 0.5,
                           fontWeight: FontWeight.w700,
                           color: theme.colorScheme.onSurfaceVariant)),
-                  if (delta != null) delta,
+                  ?delta,
                 ],
               ),
             ),
