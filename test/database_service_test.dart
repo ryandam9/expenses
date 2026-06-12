@@ -99,6 +99,23 @@ void main() {
     expect(cats, ['RENT']);
   });
 
+  test('getCategorySummaries aggregates all time, excluding transfers',
+      () async {
+    final summaries = await svc.getCategorySummaries();
+    expect(summaries.map((s) => s.category),
+        isNot(contains('TRANSFERS')));
+    // Highest spend first: RENT 900, FOOD 60, INCOME 0.
+    expect(summaries.first.category, 'RENT');
+    expect(summaries.first.total, 900);
+    expect(summaries.first.count, 1);
+    final food = summaries.singleWhere((s) => s.category == 'FOOD');
+    expect(food.total, 60); // 10 (2023) + 50 (2024) — entire history
+    expect(food.count, 2);
+    final income = summaries.singleWhere((s) => s.category == 'INCOME');
+    expect(income.total, 0); // credits don't count as spend
+    expect(income.count, 1);
+  });
+
   test('getYears returns distinct years, newest first', () async {
     expect(await svc.getYears(), ['2024', '2023']);
   });

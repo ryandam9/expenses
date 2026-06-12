@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'categories_screen.dart';
 import 'dashboard_screen.dart';
 import 'settings_screen.dart';
 import '../providers/nav_provider.dart';
@@ -27,6 +28,7 @@ class MainShell extends ConsumerWidget {
               sizing: StackFit.expand,
               children: const [
                 DashboardScreen(),
+                CategoriesScreen(),
                 SettingsScreen(),
               ],
             ),
@@ -104,11 +106,18 @@ class _Sidebar extends ConsumerWidget {
             onTap: () => ref.read(navIndexProvider.notifier).select(0),
           ),
           _NavItem(
+            icon: Icons.category_outlined,
+            selectedIcon: Icons.category_rounded,
+            label: 'Categories',
+            selected: selectedIndex == 1,
+            onTap: () => ref.read(navIndexProvider.notifier).select(1),
+          ),
+          _NavItem(
             icon: Icons.settings_outlined,
             selectedIcon: Icons.settings_rounded,
             label: 'Settings',
-            selected: selectedIndex == 1,
-            onTap: () => ref.read(navIndexProvider.notifier).select(1),
+            selected: selectedIndex == 2,
+            onTap: () => ref.read(navIndexProvider.notifier).select(2),
           ),
           const Spacer(),
           // ---------------------------------------------------------- footer
