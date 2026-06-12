@@ -8,9 +8,9 @@ searchable transaction table plus KPIs and charts.
 
 - **Transactions table** — sortable, paginated, resizable columns, free-text
   search (Ctrl+F), per-row detail dialog, CSV export via a save dialog.
-- **Overview charts** — spending over time, spending by category, spending by
-  bank, and a category-share donut. Charts always reflect exactly the rows on
-  screen, including any active search.
+- **Overview charts** — spending over time, spending by category, and a
+  category-share donut. Charts always reflect exactly the rows on screen,
+  including any active search.
 - **KPI header** — expenses, income, net, transaction count, average and
   largest expense, savings rate, with ▲/▼ deltas against the previous
   month/year/period.
