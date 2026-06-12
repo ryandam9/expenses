@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../services/database_service.dart';
@@ -13,6 +14,7 @@ import '../providers/theme_provider.dart';
 import '../providers/prefs_provider.dart';
 import '../theme/app_themes.dart';
 import '../models/expense.dart';
+import '../utils/category_icons.dart';
 import '../utils/format.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/db_path_dialog.dart';
@@ -372,40 +374,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // ---------------------------------------------------------------- KPI header
   Widget _buildKpiHeader(
       ThemeData theme, List<Expense> rows, DashboardData data) {
-    double totalDebits = 0, totalCredits = 0, largest = 0;
-    int debitCount = 0;
+    double totalDebits = 0, largest = 0;
     for (final e in rows) {
       if (e.debit > 0) {
         totalDebits += e.debit;
-        debitCount++;
         if (e.debit > largest) largest = e.debit;
       }
-      if (e.credit > 0) totalCredits += e.credit;
     }
-    final net = totalCredits - totalDebits;
-    final avgExpense = debitCount == 0 ? 0.0 : totalDebits / debitCount;
-    final savingsRate = totalCredits > 0 ? (net / totalCredits * 100) : 0.0;
-    final green = Colors.green.shade600;
 
     // "vs previous period" deltas only make sense against unsearched totals.
-    final showDeltas = _query.isEmpty;
-    final debitDelta = showDeltas
+    final debitDelta = _query.isEmpty
         ? _delta(theme, totalDebits, data.prevDebits, upIsGood: false)
-        : null;
-    final creditDelta = showDeltas
-        ? _delta(theme, totalCredits, data.prevCredits, upIsGood: true)
         : null;
 
     final tiles = <Widget Function(double)>[
       (w) => _kpi(theme, w, 'Expenses', currency0.format(totalDebits),
           Icons.south_west, theme.colorScheme.error,
           delta: debitDelta),
-      (w) => _kpi(theme, w, 'Income', currency0.format(totalCredits),
-          Icons.north_east, green,
-          delta: creditDelta),
-      (w) => _kpi(theme, w, 'Net', currency0.format(net),
-          Icons.account_balance_wallet,
-          net >= 0 ? green : theme.colorScheme.error),
       (w) => _kpi(
           theme,
           w,
@@ -413,13 +398,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           NumberFormat.decimalPattern().format(rows.length),
           Icons.receipt_long,
           theme.colorScheme.primary),
-      (w) => _kpi(theme, w, 'Avg expense', currency0.format(avgExpense),
-          Icons.calculate_outlined, theme.colorScheme.tertiary),
       (w) => _kpi(theme, w, 'Largest', currency0.format(largest),
           Icons.trending_up, theme.colorScheme.error),
-      (w) => _kpi(theme, w, 'Savings rate',
-          '${savingsRate.toStringAsFixed(0)}%', Icons.savings_outlined,
-          savingsRate >= 0 ? green : theme.colorScheme.error),
     ];
 
     return Padding(
@@ -859,12 +839,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
         ),
-        child: Text(
-          category.replaceAll('-', ' ').toLowerCase(),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-              fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FaIcon(categoryIcon(category), size: 10.5, color: textColor),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                prettyCategory(category),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: textColor),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -956,7 +947,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               _detailRow(theme, 'Description', tx.description),
               _detailRow(theme, 'Date', _fmtDate(tx.date)),
               _detailRow(theme, 'Category',
-                  tx.category.replaceAll('-', ' ').toLowerCase()),
+                  prettyCategory(tx.category)),
               _detailRow(theme, 'Bank', tx.source),
               if (tx.debit > 0)
                 _detailRow(theme, 'Debit', currency2.format(tx.debit)),

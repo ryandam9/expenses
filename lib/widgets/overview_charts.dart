@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/expense.dart';
 import '../providers/theme_provider.dart';
 import '../services/query_builder.dart';
 import '../theme/app_themes.dart';
+import '../utils/category_icons.dart';
 import '../utils/format.dart';
 
 /// The Overview section: spending-over-time trend, per-category bar chart and
@@ -472,10 +474,7 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                                   child: SizedBox(
                                     width: slotWidth - 8,
                                     child: Text(
-                                      entries[i]
-                                          .key
-                                          .replaceAll('-', ' ')
-                                          .toLowerCase(),
+                                      prettyCategory(entries[i].key),
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                           fontSize: 10.5,
@@ -593,7 +592,7 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                 ),
                 Text(
                   _touchedPie >= 0 && _touchedPie < entries.length
-                      ? '${entries[_touchedPie].key.replaceAll('-', ' ').toLowerCase()} '
+                      ? '${prettyCategory(entries[_touchedPie].key)} '
                           '· ${(entries[_touchedPie].value / total * 100).toStringAsFixed(1)}%'
                       : 'total',
                   textAlign: TextAlign.center,
@@ -662,12 +661,17 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
         ),
         child: Row(
           children: [
+            // The category's icon in a chip tinted with its slice colour, so
+            // the legend still keys rows to slices while reading richer.
             Container(
-              width: 13,
-              height: 13,
+              width: 26,
+              height: 26,
               decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(4),
+                color: color.withValues(alpha: active ? 0.28 : 0.16),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: FaIcon(categoryIcon(e.key), size: 12, color: color),
               ),
             ),
             const SizedBox(width: 10),
@@ -675,7 +679,7 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
             // right next to the label instead of across a wide gap.
             SizedBox(
               width: 148,
-              child: Text(e.key.replaceAll('-', ' ').toLowerCase(),
+              child: Text(prettyCategory(e.key),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(

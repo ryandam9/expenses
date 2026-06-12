@@ -7,6 +7,16 @@ String compactMoney(double v) {
   return '\$${v.toStringAsFixed(0)}';
 }
 
+/// Display form of a raw category name, in Title Case:
+/// 'HOME-EXPENSES' → 'Home Expenses', 'MELLOW' → 'Mellow'.
+String prettyCategory(String category) {
+  return category
+      .split(RegExp(r'[-_\s]+'))
+      .where((w) => w.isNotEmpty)
+      .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
+      .join(' ');
+}
+
 /// Whole-dollar currency, for KPI tiles.
 final NumberFormat currency0 = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
 

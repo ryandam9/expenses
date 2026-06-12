@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/app_filter.dart';
+import '../utils/format.dart';
 
 class FilterNotifier extends Notifier<AppFilter> {
   @override
@@ -84,7 +85,7 @@ class FilterNotifier extends Notifier<AppFilter> {
     if (f.allCategories) return 'All';
     if (f.categories.isEmpty) return 'None';
     if (f.categories.length == 1) {
-      return f.categories.first.replaceAll('-', ' ').toLowerCase();
+      return prettyCategory(f.categories.first);
     }
     return '${f.categories.length} selected';
   }
