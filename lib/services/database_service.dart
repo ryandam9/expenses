@@ -12,6 +12,9 @@ class DatabaseNotConfiguredException implements Exception {
   String toString() => 'No data source configured';
 }
 
+/// A category's all-time figures, for the category explorer list.
+typedef CategorySummary = ({String category, double total, int count});
+
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._();
   factory DatabaseService() => _instance;
@@ -128,6 +131,27 @@ class DatabaseService {
         'SELECT DISTINCT category FROM expenses WHERE ${where.clause} ORDER BY category',
         where.args.isNotEmpty ? where.args : null);
     return rows.map((r) => r['category'] as String).toList();
+  }
+
+  /// One row per category over the entire history (transfers excluded):
+  /// total spend (sum of debits) and transaction count, highest spend first.
+  /// Backs the category explorer's list.
+  Future<List<CategorySummary>> getCategorySummaries() async {
+    final db = await database;
+    final rows = await db.rawQuery(
+        'SELECT category, '
+        'SUM(CASE WHEN CAST(debit AS REAL) > 0 THEN CAST(debit AS REAL) ELSE 0 END) AS total, '
+        'COUNT(*) AS cnt '
+        'FROM expenses WHERE $excludeTransfersClause '
+        'GROUP BY category ORDER BY total DESC, category');
+    return [
+      for (final r in rows)
+        (
+          category: r['category'] as String,
+          total: (r['total'] as num?)?.toDouble() ?? 0,
+          count: (r['cnt'] as num).toInt(),
+        ),
+    ];
   }
 
   Future<List<String>> getYears() async {
