@@ -1,20 +1,21 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:path/path.dart' as p;
 import '../services/database_service.dart';
 import '../services/query_builder.dart';
-import '../providers/filter_provider.dart';
+import '../providers/dashboard_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/prefs_provider.dart';
 import '../theme/app_themes.dart';
 import '../models/expense.dart';
+import '../utils/format.dart';
 import '../widgets/filter_bar.dart';
 import '../widgets/db_path_dialog.dart';
+import '../widgets/overview_charts.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -24,19 +25,11 @@ class DashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  final _db = DatabaseService();
   final _vScroll = ScrollController();
   final _hScroll = ScrollController();
   final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
 
-  double _totalDebits = 0;
-  double _totalCredits = 0;
-  int _txCount = 0;
-  Map<String, double> _categorySpend = {};
-  List<Expense> _transactions = [];
-  bool _loading = true;
-  bool _loadedOnce = false;
-  String? _error;
   String _section = 'transactions';
   String _query = '';
 
@@ -54,15 +47,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Timer? _searchDebounce;
 
-  /// Chart colours drawn from the active theme's feather palette, so the
-  /// visualisations share the rest of the app's colour identity instead of a
-  /// generic, off-theme set.
-  List<Color> _categoryColors(int n) {
-    final palette = appThemes[ref.read(themeIndexProvider)].palette;
-    final colors = buildChartColors(palette, n);
-    return colors.isEmpty ? List.filled(n, Colors.grey) : colors;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -73,7 +57,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           saved.split(',').map(double.tryParse).whereType<double>().toList();
       if (parts.length == _columns.length) _colWidths = parts;
     }
-    _loadData();
   }
 
   void _saveColWidths() {
@@ -88,48 +71,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     _vScroll.dispose();
     _hScroll.dispose();
     _searchCtrl.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    setState(() {
-      _error = null;
-      _loading = true;
-    });
-    try {
-      final f = ref.read(filterProvider);
-      final results = await Future.wait([
-        _db.getTotalDebits(filter: f),
-        _db.getTotalCredits(filter: f),
-        _db.getTransactionCount(filter: f),
-        _db.getSpendByCategory(filter: f),
-        _db.getExpenses(filter: f),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _totalDebits = results[0] as double;
-        _totalCredits = results[1] as double;
-        _txCount = results[2] as int;
-        _categorySpend = results[3] as Map<String, double>;
-        _transactions = results[4] as List<Expense>;
-        _page = 0;
-        _loading = false;
-        _loadedOnce = true;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _loading = false;
-        _loadedOnce = true;
-      });
-    }
-  }
-
-  List<Expense> get _filtered {
-    if (_query.isEmpty) return _transactions;
+  /// Rows matching the free-text search, drawn from [all]. KPIs, charts and
+  /// the table are all computed from this, so everything on screen agrees.
+  List<Expense> _filtered(List<Expense> all) {
+    if (_query.isEmpty) return all;
     final q = _query.toLowerCase();
-    return _transactions
+    return all
         .where((e) =>
             e.description.toLowerCase().contains(q) ||
             e.category.toLowerCase().contains(q) ||
@@ -137,14 +88,28 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         .toList();
   }
 
+  void _focusSearch() {
+    if (_section != 'transactions') {
+      setState(() => _section = 'transactions');
+    }
+    // After a section switch the field mounts on the next frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocus.requestFocus();
+    });
+  }
+
+  void _clearSearch() {
+    _searchCtrl.clear();
+    setState(() {
+      _query = '';
+      _page = 0;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Reload whenever the filter changes — the sidebar stays mounted so the
-    // category checklist never collapses while doing so.
-    ref.listen(filterProvider, (_, __) => _loadData());
-    // Reload when the data source changes.
-    ref.listen(dataReloadProvider, (_, __) => _loadData());
+    final async = ref.watch(dashboardDataProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -179,7 +144,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             tooltip: _section == 'overview'
                 ? 'Export category summary (CSV)'
                 : 'Export transactions (CSV)',
-            onPressed: _loadedOnce && _error == null ? _exportCsv : null,
+            onPressed: async.hasValue
+                ? () => _exportCsv(async.requireValue.transactions)
+                : null,
           ),
           const SizedBox(width: 4),
         ],
@@ -188,27 +155,108 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const FilterPanel(),
-          Expanded(child: _buildContent(theme)),
+          Expanded(child: _buildBody(theme, async)),
         ],
       ),
     );
   }
 
-  // Writes the current view to a timestamped CSV next to the database file
-  // (or the system temp dir) and reports the location.
-  Future<void> _exportCsv() async {
+  Widget _buildBody(ThemeData theme, AsyncValue<DashboardData> async) {
+    // Riverpod keeps the previous value while a reload is in flight, so prefer
+    // showing (slightly stale) data behind a thin progress bar over a spinner.
+    final data = async.hasValue ? async.requireValue : null;
+    if (data != null) return _buildLoaded(theme, data, async.isLoading);
+    if (async.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final err = async.error;
+    if (err is DatabaseNotConfiguredException) return _buildSetup(theme);
+    return _buildError(theme, err.toString());
+  }
+
+  Widget _buildLoaded(ThemeData theme, DashboardData data, bool reloading) {
+    final filtered = _filtered(data.transactions);
+    final content = Column(
+      children: [
+        SizedBox(
+          height: 3,
+          child: reloading ? const LinearProgressIndicator(minHeight: 3) : null,
+        ),
+        _buildKpiHeader(theme, filtered, data),
+        if (_query.isNotEmpty)
+          _buildSearchChip(theme, filtered.length, data.transactions.length),
+        Divider(
+            height: 1, thickness: 1, color: theme.colorScheme.outlineVariant),
+        Expanded(
+          child: _section == 'overview'
+              ? OverviewCharts(transactions: filtered)
+              : _buildTransactionsView(theme, filtered),
+        ),
+      ],
+    );
+    // Ambient design: the surface is lit by two soft, palette-coloured glows
+    // bleeding in from opposite corners. Alpha is kept very low so the base
+    // stays bright and text contrast is untouched.
+    final body = DecoratedBox(
+      decoration: BoxDecoration(gradient: _ambientGlow(theme)),
+      child: content,
+    );
+    final pageCount =
+        filtered.isEmpty ? 1 : (filtered.length / _pageSize).ceil();
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true):
+            _focusSearch,
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true):
+            _focusSearch,
+        const SingleActivator(LogicalKeyboardKey.pageDown): () {
+          if (_section == 'transactions' && _page < pageCount - 1) {
+            setState(() => _page++);
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.pageUp): () {
+          if (_section == 'transactions' && _page > 0) {
+            setState(() => _page--);
+          }
+        },
+      },
+      child: Focus(autofocus: true, child: body),
+    );
+  }
+
+  Gradient _ambientGlow(ThemeData theme) {
+    final palette = appThemes[ref.watch(themeIndexProvider)].palette;
+    final a = (palette.isNotEmpty ? palette.first : theme.colorScheme.primary)
+        .withValues(alpha: 0.10);
+    final b = (palette.length > 2 ? palette[2] : theme.colorScheme.tertiary)
+        .withValues(alpha: 0.07);
+    return LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [a, Colors.transparent, b],
+      stops: const [0.0, 0.55, 1.0],
+    );
+  }
+
+  // ------------------------------------------------------------------ export
+  // Writes the current view to a CSV chosen via the platform's save dialog.
+  Future<void> _exportCsv(List<Expense> all) async {
     try {
       final overview = _section == 'overview';
+      final filtered = _filtered(all);
       final content = overview
-          ? categorySummaryToCsv(_categorySpend)
-          : transactionsToCsv(_sortList(_filtered));
+          ? categorySummaryToCsv(debitTotalsBy(filtered, (e) => e.category))
+          : transactionsToCsv(_sortList(filtered));
       final ts = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
       final base = overview ? 'category_summary' : 'transactions';
-      var targetDir = p.dirname(DatabaseService().currentPath);
-      if (!Directory(targetDir).existsSync()) {
-        targetDir = Directory.systemTemp.path;
-      }
-      final file = File(p.join(targetDir, 'expenses_${base}_$ts.csv'));
+      final location = await getSaveLocation(
+        suggestedName: 'expenses_${base}_$ts.csv',
+        acceptedTypeGroups: const [
+          XTypeGroup(label: 'CSV', extensions: ['csv'])
+        ],
+      );
+      if (location == null) return; // cancelled
+      final file = File(location.path);
       await file.writeAsString(content);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -229,79 +277,57 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  Widget _buildContent(ThemeData theme) {
-    if (_error != null) return _buildError(theme);
-    if (!_loadedOnce) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    final content = Column(
-      children: [
-        SizedBox(
-          height: 3,
-          child: _loading ? const LinearProgressIndicator(minHeight: 3) : null,
-        ),
-        _buildKpiHeader(theme),
-        Divider(height: 1, thickness: 1, color: theme.colorScheme.outlineVariant),
-        Expanded(
-          child: _section == 'overview'
-              ? _buildOverview(theme)
-              : _buildTransactionsView(theme),
-        ),
-      ],
-    );
-    // Ambient design: the surface is lit by two soft, palette-coloured glows
-    // bleeding in from opposite corners. Alpha is kept very low so the base
-    // stays bright and text contrast is untouched.
-    return DecoratedBox(
-      decoration: BoxDecoration(gradient: _ambientGlow(theme)),
-      child: content,
-    );
-  }
-
-  Gradient _ambientGlow(ThemeData theme) {
-    final palette = appThemes[ref.read(themeIndexProvider)].palette;
-    final a = (palette.isNotEmpty ? palette.first : theme.colorScheme.primary)
-        .withValues(alpha: 0.10);
-    final b = (palette.length > 2 ? palette[2] : theme.colorScheme.tertiary)
-        .withValues(alpha: 0.07);
-    return LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [a, Colors.transparent, b],
-      stops: const [0.0, 0.55, 1.0],
-    );
-  }
-
   // ---------------------------------------------------------------- KPI header
-  Widget _buildKpiHeader(ThemeData theme) {
-    final net = _totalCredits - _totalDebits;
-    final fmt = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+  Widget _buildKpiHeader(
+      ThemeData theme, List<Expense> rows, DashboardData data) {
+    double totalDebits = 0, totalCredits = 0, largest = 0;
+    int debitCount = 0;
+    for (final e in rows) {
+      if (e.debit > 0) {
+        totalDebits += e.debit;
+        debitCount++;
+        if (e.debit > largest) largest = e.debit;
+      }
+      if (e.credit > 0) totalCredits += e.credit;
+    }
+    final net = totalCredits - totalDebits;
+    final avgExpense = debitCount == 0 ? 0.0 : totalDebits / debitCount;
+    final savingsRate = totalCredits > 0 ? (net / totalCredits * 100) : 0.0;
     final green = Colors.green.shade600;
 
-    final debits = _transactions.where((e) => e.debit > 0);
-    final debitCount = debits.length;
-    final avgExpense = debitCount == 0 ? 0.0 : _totalDebits / debitCount;
-    final largest =
-        debits.fold<double>(0, (m, e) => e.debit > m ? e.debit : m);
-    final savingsRate =
-        _totalCredits > 0 ? (net / _totalCredits * 100) : 0.0;
+    // "vs previous period" deltas only make sense against unsearched totals.
+    final showDeltas = _query.isEmpty;
+    final debitDelta = showDeltas
+        ? _delta(theme, totalDebits, data.prevDebits, upIsGood: false)
+        : null;
+    final creditDelta = showDeltas
+        ? _delta(theme, totalCredits, data.prevCredits, upIsGood: true)
+        : null;
 
     final tiles = <Widget Function(double)>[
-      (w) => _kpi(theme, w, 'Expenses', fmt.format(_totalDebits),
-          Icons.south_west, theme.colorScheme.error),
-      (w) => _kpi(theme, w, 'Income', fmt.format(_totalCredits),
-          Icons.north_east, green),
-      (w) => _kpi(theme, w, 'Net', fmt.format(net),
-          Icons.account_balance_wallet, net >= 0 ? green : theme.colorScheme.error),
-      (w) => _kpi(theme, w, 'Transactions',
-          NumberFormat.decimalPattern().format(_txCount),
-          Icons.receipt_long, theme.colorScheme.primary),
-      (w) => _kpi(theme, w, 'Avg expense', fmt.format(avgExpense),
+      (w) => _kpi(theme, w, 'Expenses', currency0.format(totalDebits),
+          Icons.south_west, theme.colorScheme.error,
+          delta: debitDelta),
+      (w) => _kpi(theme, w, 'Income', currency0.format(totalCredits),
+          Icons.north_east, green,
+          delta: creditDelta),
+      (w) => _kpi(theme, w, 'Net', currency0.format(net),
+          Icons.account_balance_wallet,
+          net >= 0 ? green : theme.colorScheme.error),
+      (w) => _kpi(
+          theme,
+          w,
+          'Transactions',
+          NumberFormat.decimalPattern().format(rows.length),
+          Icons.receipt_long,
+          theme.colorScheme.primary),
+      (w) => _kpi(theme, w, 'Avg expense', currency0.format(avgExpense),
           Icons.calculate_outlined, theme.colorScheme.tertiary),
-      (w) => _kpi(theme, w, 'Largest', fmt.format(largest),
+      (w) => _kpi(theme, w, 'Largest', currency0.format(largest),
           Icons.trending_up, theme.colorScheme.error),
-      (w) => _kpi(theme, w, 'Savings rate', '${savingsRate.toStringAsFixed(0)}%',
-          Icons.savings_outlined, savingsRate >= 0 ? green : theme.colorScheme.error),
+      (w) => _kpi(theme, w, 'Savings rate',
+          '${savingsRate.toStringAsFixed(0)}%', Icons.savings_outlined,
+          savingsRate >= 0 ? green : theme.colorScheme.error),
     ];
 
     return Padding(
@@ -321,8 +347,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
+  /// Compact "▲ 12% vs prev" readout. [upIsGood] flips the colour semantics:
+  /// rising income is good (green), rising expenses are not (red).
+  Widget? _delta(ThemeData theme, double current, double? previous,
+      {required bool upIsGood}) {
+    if (previous == null || previous <= 0) return null;
+    final pct = (current - previous) / previous * 100;
+    final up = pct >= 0;
+    final good = up == upIsGood;
+    final color = good ? Colors.green.shade700 : theme.colorScheme.error;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(up ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+            size: 16, color: color),
+        Text('${pct.abs().toStringAsFixed(0)}% vs prev',
+            style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+      ],
+    );
+  }
+
   Widget _kpi(ThemeData theme, double width, String label, String value,
-      IconData icon, Color color) {
+      IconData icon, Color color,
+      {Widget? delta}) {
     return SizedBox(
       width: width,
       child: Container(
@@ -335,8 +383,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             end: Alignment.bottomRight,
             colors: [
               theme.colorScheme.surfaceContainerLowest,
-              Color.alphaBlend(
-                  color.withValues(alpha: 0.06), theme.colorScheme.surfaceContainerLowest),
+              Color.alphaBlend(color.withValues(alpha: 0.06),
+                  theme.colorScheme.surfaceContainerLowest),
             ],
           ),
           borderRadius: BorderRadius.circular(12),
@@ -375,6 +423,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           letterSpacing: 0.5,
                           fontWeight: FontWeight.w700,
                           color: theme.colorScheme.onSurfaceVariant)),
+                  if (delta != null) delta,
                 ],
               ),
             ),
@@ -384,530 +433,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  // ------------------------------------------------------------------ overview
-  // Index of the donut slice currently under the pointer (-1 = none). Drives
-  // the slice "pop" and the live readout in the donut's centre.
-  int _touchedPie = -1;
-
-  Widget _buildOverview(ThemeData theme) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _sectionTitle(theme, 'Spending Over Time'),
-        const SizedBox(height: 10),
-        _buildTrendCard(theme),
-        const SizedBox(height: 24),
-        _sectionTitle(theme, 'Spending by Category'),
-        const SizedBox(height: 10),
-        _buildCategoryBarCard(theme),
-        const SizedBox(height: 24),
-        _sectionTitle(theme, 'Category Share'),
-        const SizedBox(height: 10),
-        _buildCategoryCard(theme),
-      ],
-    );
-  }
-
-  // A straightforward bar chart: one bar per category (X) sized by its total
-  // spend (Y). Categories are ordered high-to-low so the ranking reads at a
-  // glance; bars take the category's own colour from the chart palette.
-  Widget _buildCategoryBarCard(ThemeData theme) {
-    final cs = theme.colorScheme;
-    if (_categorySpend.isEmpty) {
-      return _emptyCard(theme, Icons.bar_chart, 'No expense data for this filter');
-    }
-    final entries = _categorySpend.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final maxVal = entries.first.value;
-    final colors = _categoryColors(entries.length);
-    // Keep bars readable: give each one breathing room and let the card scroll
-    // horizontally when there are many categories.
-    final chartWidth = (entries.length * 56).toDouble();
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(8, 18, 16, 8),
-      decoration: _cardDecoration(theme),
-      child: Semantics(
-        label: 'Bar chart of total spending by category',
-        child: SizedBox(
-        height: 300,
-        child: LayoutBuilder(
-          builder: (context, c) {
-            final width = chartWidth < c.maxWidth ? c.maxWidth : chartWidth;
-            return Scrollbar(
-              thumbVisibility: chartWidth > c.maxWidth,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: width,
-                  child: BarChart(
-                    BarChartData(
-                      alignment: BarChartAlignment.spaceAround,
-                      maxY: maxVal <= 0 ? 1 : maxVal * 1.18,
-                      barTouchData: BarTouchData(
-                        touchTooltipData: BarTouchTooltipData(
-                          getTooltipItem: (group, _, rod, __) => BarTooltipItem(
-                            '${entries[group.x].key.replaceAll('-', ' ')}\n',
-                            const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 11),
-                            children: [
-                              TextSpan(
-                                text: _money(rod.toY),
-                                style: const TextStyle(
-                                    color: Colors.white, fontSize: 11),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      barGroups: [
-                        for (var i = 0; i < entries.length; i++)
-                          BarChartGroupData(x: i, barRods: [
-                            BarChartRodData(
-                              toY: entries[i].value,
-                              width: 24,
-                              borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(6)),
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  colors[i].withValues(alpha: 0.75),
-                                  colors[i],
-                                ],
-                              ),
-                            ),
-                          ]),
-                      ],
-                      titlesData: FlTitlesData(
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 46,
-                            getTitlesWidget: (v, _) => v == 0
-                                ? const SizedBox()
-                                : Text(_money(v),
-                                    style: const TextStyle(fontSize: 9)),
-                          ),
-                        ),
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            reservedSize: 56,
-                            getTitlesWidget: (v, _) {
-                              final i = v.toInt();
-                              if (i < 0 || i >= entries.length) {
-                                return const SizedBox();
-                              }
-                              return Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Transform.rotate(
-                                  angle: -0.5,
-                                  child: SizedBox(
-                                    width: 58,
-                                    child: Text(
-                                      entries[i]
-                                          .key
-                                          .replaceAll('-', ' ')
-                                          .toLowerCase(),
-                                      style: const TextStyle(fontSize: 8.5),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        topTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                        rightTitles: const AxisTitles(
-                            sideTitles: SideTitles(showTitles: false)),
-                      ),
-                      borderData: FlBorderData(show: false),
-                      gridData: FlGridData(
-                        show: true,
-                        drawVerticalLine: false,
-                        horizontalInterval: maxVal <= 0 ? 1 : maxVal / 4,
-                        getDrawingHorizontalLine: (_) => FlLine(
-                            color: cs.outlineVariant, strokeWidth: 0.5),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-      ),
-    );
-  }
-
-  Widget _sectionTitle(ThemeData theme, String title) {
-    return Row(
-      children: [
-        Container(
-          width: 4,
-          height: 18,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primary,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Text(title,
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800)),
-      ],
-    );
-  }
-
-  BoxDecoration _cardDecoration(ThemeData theme) => BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
-      );
-
-  // Aggregates expenses (debits) into an ordered time series. Spans wider than
-  // ~two months collapse to one point per calendar month so the axis stays
-  // legible; shorter spans keep per-day resolution.
-  (List<MapEntry<String, double>>, bool) _trendSeries() {
-    final distinctDays = <String>{};
-    for (final e in _transactions) {
-      if (e.debit > 0) distinctDays.add(e.date);
-    }
-    final monthly = distinctDays.length > 62;
-    final byKey = <String, double>{};
-    for (final e in _transactions) {
-      if (e.debit <= 0) continue;
-      final d = e.date;
-      final key = monthly ? (d.length >= 7 ? d.substring(0, 7) : d) : d;
-      byKey[key] = (byKey[key] ?? 0) + e.debit;
-    }
-    final entries = byKey.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    return (entries, monthly);
-  }
-
-  String _trendLabel(String key, bool monthly, {bool full = false}) {
-    final dt = DateTime.tryParse(monthly ? '$key-01' : key);
-    if (dt == null) return key;
-    if (monthly) return DateFormat(full ? 'MMM yyyy' : 'MMM').format(dt);
-    return DateFormat(full ? 'd MMM yyyy' : 'd/M').format(dt);
-  }
-
-  Widget _buildTrendCard(ThemeData theme) {
-    final cs = theme.colorScheme;
-    final (series, monthly) = _trendSeries();
-    if (series.isEmpty) {
-      return _emptyCard(theme, Icons.show_chart, 'No expense data for this filter');
-    }
-    final maxY = series.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-    final totalSpend = series.fold<double>(0, (s, e) => s + e.value);
-    final spots = [
-      for (var i = 0; i < series.length; i++)
-        FlSpot(i.toDouble(), series[i].value)
-    ];
-    final lineColor = cs.primary;
-    final labelStep = (series.length / 6).ceil().clamp(1, series.length);
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 18, 18, 14),
-      decoration: _cardDecoration(theme),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(_money(totalSpend),
-                  style: theme.textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(width: 8),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 3),
-                child: Text('total spend · ${monthly ? 'by month' : 'by day'}',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Semantics(
-            label: 'Line chart of spending over time, total '
-                '${_money(totalSpend)}',
-            child: SizedBox(
-            height: 240,
-            child: LineChart(
-              LineChartData(
-                minY: 0,
-                maxY: maxY <= 0 ? 1 : maxY * 1.15,
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipItems: (touched) => touched.map((t) {
-                      final e = series[t.x.toInt()];
-                      return LineTooltipItem(
-                        '${_trendLabel(e.key, monthly, full: true)}\n',
-                        const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11),
-                        children: [
-                          TextSpan(
-                            text: _money(e.value),
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 11),
-                          ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: spots,
-                    isCurved: true,
-                    curveSmoothness: 0.25,
-                    preventCurveOverShooting: true,
-                    color: lineColor,
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: FlDotData(
-                      show: series.length <= 31,
-                      getDotPainter: (s, _, __, ___) => FlDotCirclePainter(
-                        radius: 3,
-                        color: Colors.white,
-                        strokeWidth: 2,
-                        strokeColor: lineColor,
-                      ),
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          lineColor.withValues(alpha: 0.28),
-                          lineColor.withValues(alpha: 0.02),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 46,
-                      getTitlesWidget: (v, _) => v == 0
-                          ? const SizedBox()
-                          : Text(_money(v),
-                              style: const TextStyle(fontSize: 9)),
-                    ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      interval: 1,
-                      getTitlesWidget: (v, _) {
-                        final i = v.toInt();
-                        if (i < 0 || i >= series.length) return const SizedBox();
-                        if (i % labelStep != 0) return const SizedBox();
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(_trendLabel(series[i].key, monthly),
-                              style: const TextStyle(fontSize: 9)),
-                        );
-                      },
-                    ),
-                  ),
-                  topTitles:
-                      const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles:
-                      const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                ),
-                borderData: FlBorderData(show: false),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: maxY <= 0 ? 1 : maxY / 4,
-                  getDrawingHorizontalLine: (_) => FlLine(
-                      color: cs.outlineVariant, strokeWidth: 0.5),
-                ),
-              ),
-            ),
-          ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryCard(ThemeData theme) {
-    if (_categorySpend.isEmpty) {
-      return _emptyCard(theme, Icons.donut_large, 'No expense data for this filter');
-    }
-    final entries = _categorySpend.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final total = entries.fold<double>(0, (s, e) => s + e.value);
-    final colors = _categoryColors(entries.length);
-
-    final donut = Semantics(
-      label: 'Donut chart of category share, total ${_money(total)}',
-      child: SizedBox(
-      width: 220,
-      height: 220,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          PieChart(
-            PieChartData(
-              sectionsSpace: 2,
-              centerSpaceRadius: 62,
-              startDegreeOffset: -90,
-              pieTouchData: PieTouchData(
-                touchCallback: (event, resp) {
-                  setState(() {
-                    if (!event.isInterestedForInteractions ||
-                        resp == null ||
-                        resp.touchedSection == null) {
-                      _touchedPie = -1;
-                    } else {
-                      _touchedPie = resp.touchedSection!.touchedSectionIndex;
-                    }
-                  });
-                },
-              ),
-              sections: [
-                for (var i = 0; i < entries.length; i++)
-                  PieChartSectionData(
-                    value: entries[i].value,
-                    color: colors[i],
-                    radius: _touchedPie == i ? 30 : 24,
-                    showTitle: false,
-                  ),
-              ],
-            ),
-          ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _touchedPie >= 0 && _touchedPie < entries.length
-                    ? '${(entries[_touchedPie].value / total * 100).toStringAsFixed(1)}%'
-                    : _money(total),
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              Text(
-                _touchedPie >= 0 && _touchedPie < entries.length
-                    ? entries[_touchedPie].key.replaceAll('-', ' ').toLowerCase()
-                    : 'total',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-            ],
-          ),
-        ],
-      ),
-      ),
-    );
-
-    final legend = SelectionArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var i = 0; i < entries.length; i++)
-            _legendRow(theme, entries[i], colors[i], total, i),
-        ],
-      ),
-    );
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: _cardDecoration(theme),
-      child: LayoutBuilder(
-        builder: (context, c) {
-          if (c.maxWidth < 560) {
-            return Column(
-              children: [donut, const SizedBox(height: 16), legend],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              donut,
-              const SizedBox(width: 24),
-              Expanded(child: legend),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _legendRow(ThemeData theme, MapEntry<String, double> e, Color color,
-      double total, int i) {
-    final cs = theme.colorScheme;
-    final pct = total == 0 ? 0.0 : e.value / total;
-    final active = _touchedPie == i;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      margin: const EdgeInsets.symmetric(vertical: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: active ? color.withValues(alpha: 0.10) : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-      ),
+  /// Makes the search's effect on the totals explicit: KPIs and charts cover
+  /// only the matching rows while this chip is visible.
+  Widget _buildSearchChip(ThemeData theme, int shown, int total) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       child: Row(
         children: [
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(e.key.replaceAll('-', ' ').toLowerCase(),
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 60,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: pct,
-                minHeight: 6,
-                backgroundColor: cs.surfaceContainerHigh,
-                color: color,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text('${(pct * 100).toStringAsFixed(1)}%',
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: cs.onSurfaceVariant)),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 72,
-            child: Text(_money(e.value),
-                textAlign: TextAlign.right,
-                style: const TextStyle(
-                    fontSize: 12.5, fontWeight: FontWeight.w700)),
+          InputChip(
+            avatar: const Icon(Icons.search, size: 16),
+            label: Text(
+                'Search “$_query” — totals cover $shown of $total transactions',
+                style: const TextStyle(fontSize: 12)),
+            onDeleted: _clearSearch,
+            deleteButtonTooltipMessage: 'Clear search',
           ),
         ],
       ),
@@ -915,8 +454,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   // -------------------------------------------------------------- transactions
-  Widget _buildTransactionsView(ThemeData theme) {
-    final all = _sortList(_filtered);
+  Widget _buildTransactionsView(ThemeData theme, List<Expense> filtered) {
+    final all = _sortList(filtered);
     final total = all.length;
     final pageCount = total == 0 ? 1 : (total / _pageSize).ceil();
     if (_page >= pageCount) _page = pageCount - 1;
@@ -929,20 +468,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
           child: TextField(
             controller: _searchCtrl,
+            focusNode: _searchFocus,
             decoration: InputDecoration(
-              hintText: 'Search description, category or bank…',
+              hintText: 'Search description, category or bank…  (Ctrl+F)',
               prefixIcon: const Icon(Icons.search, size: 20),
               suffixIcon: _query.isEmpty
                   ? null
                   : IconButton(
                       icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () {
-                        _searchCtrl.clear();
-                        setState(() {
-                          _query = '';
-                          _page = 0;
-                        });
-                      },
+                      onPressed: _clearSearch,
                     ),
               isDense: true,
             ),
@@ -959,7 +493,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ),
         ),
         Expanded(child: _buildTable(theme, pageItems, startIndex)),
-        _buildPaginationBar(theme, total, startIndex, pageItems.length, pageCount),
+        _buildPaginationBar(
+            theme, total, startIndex, pageItems.length, pageCount),
       ],
     );
   }
@@ -985,8 +520,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   void _resizeColumn(int i, double dx) {
     setState(() {
-      _colWidths[i] =
-          (_colWidths[i] + dx).clamp(_minColWidth, _maxColWidth);
+      _colWidths[i] = (_colWidths[i] + dx).clamp(_minColWidth, _maxColWidth);
     });
     _saveColWidths();
   }
@@ -1163,7 +697,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _tableRow(ThemeData theme, Expense tx, int displayIndex, int rowInPage) {
+  Widget _tableRow(
+      ThemeData theme, Expense tx, int displayIndex, int rowInPage) {
     final amount = tx.debit > 0 ? -tx.debit : tx.credit;
     final isDebit = tx.debit > 0;
     final values = <String>[
@@ -1171,53 +706,54 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       tx.date,
       tx.description,
       tx.source,
-      NumberFormat.currency(symbol: '\$', decimalDigits: 2).format(amount),
+      currency2.format(amount),
       tx.category.replaceAll('-', ' ').toLowerCase(),
     ];
     return InkWell(
       onTap: () => _showTxDetail(theme, tx),
       child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-      decoration: BoxDecoration(
-        color: rowInPage.isOdd ? theme.colorScheme.surfaceContainerLow : null,
-        border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outlineVariant, width: 0.5),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        decoration: BoxDecoration(
+          color: rowInPage.isOdd ? theme.colorScheme.surfaceContainerLow : null,
+          border: Border(
+            bottom:
+                BorderSide(color: theme.colorScheme.outlineVariant, width: 0.5),
+          ),
         ),
-      ),
-      child: Row(
-        // Rows size to their content so a long description can wrap onto
-        // several lines; top-align the other cells against the first line.
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: List.generate(_columns.length, (c) {
-          final isAmount = c == 4;
-          final isDescription = c == 2;
-          return Padding(
-            padding: const EdgeInsets.only(right: _cellGap),
-            child: SizedBox(
-              width: _colWidths[c],
-              child: Text(
-                values[c],
-                textAlign: _columns[c].$3,
-                softWrap: isDescription,
-                overflow: isDescription
-                    ? TextOverflow.visible
-                    : TextOverflow.ellipsis,
-                maxLines: isDescription ? null : 1,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  height: isDescription ? 1.35 : null,
-                  fontWeight: isAmount ? FontWeight.w800 : FontWeight.w500,
-                  color: isAmount
-                      ? (isDebit
-                          ? theme.colorScheme.error
-                          : Colors.green.shade700)
-                      : theme.colorScheme.onSurface,
+        child: Row(
+          // Rows size to their content so a long description can wrap onto
+          // several lines; top-align the other cells against the first line.
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: List.generate(_columns.length, (c) {
+            final isAmount = c == 4;
+            final isDescription = c == 2;
+            return Padding(
+              padding: const EdgeInsets.only(right: _cellGap),
+              child: SizedBox(
+                width: _colWidths[c],
+                child: Text(
+                  values[c],
+                  textAlign: _columns[c].$3,
+                  softWrap: isDescription,
+                  overflow: isDescription
+                      ? TextOverflow.visible
+                      : TextOverflow.ellipsis,
+                  maxLines: isDescription ? null : 1,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: isDescription ? 1.35 : null,
+                    fontWeight: isAmount ? FontWeight.w800 : FontWeight.w500,
+                    color: isAmount
+                        ? (isDebit
+                            ? theme.colorScheme.error
+                            : Colors.green.shade700)
+                        : theme.colorScheme.onSurface,
+                  ),
                 ),
               ),
-            ),
-          );
-        }),
-      ),
+            );
+          }),
+        ),
       ),
     );
   }
@@ -1225,13 +761,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void _showTxDetail(ThemeData theme, Expense tx) {
     final amount = tx.debit > 0 ? -tx.debit : tx.credit;
     final isDebit = tx.debit > 0;
-    final money = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         icon: Icon(isDebit ? Icons.south_west : Icons.north_east,
             color: isDebit ? theme.colorScheme.error : Colors.green.shade600),
-        title: Text(money.format(amount),
+        title: Text(currency2.format(amount),
             style: TextStyle(
                 fontWeight: FontWeight.w800,
                 color:
@@ -1247,9 +782,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   tx.category.replaceAll('-', ' ').toLowerCase()),
               _detailRow(theme, 'Bank', tx.source),
               if (tx.debit > 0)
-                _detailRow(theme, 'Debit', money.format(tx.debit)),
+                _detailRow(theme, 'Debit', currency2.format(tx.debit)),
               if (tx.credit > 0)
-                _detailRow(theme, 'Credit', money.format(tx.credit)),
+                _detailRow(theme, 'Credit', currency2.format(tx.credit)),
             ],
           ),
         ),
@@ -1258,7 +793,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             onPressed: () {
               Clipboard.setData(ClipboardData(
                   text: '${tx.date} | ${tx.description} | '
-                      '${tx.category} | ${tx.source} | ${money.format(amount)}'));
+                      '${tx.category} | ${tx.source} | ${currency2.format(amount)}'));
               Navigator.pop(ctx);
             },
             child: const Text('Copy'),
@@ -1337,7 +872,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           IconButton.outlined(
             onPressed: _page > 0 ? () => setState(() => _page--) : null,
             icon: const Icon(Icons.chevron_left, size: 20),
-            tooltip: 'Previous',
+            tooltip: 'Previous (PgUp)',
             style: IconButton.styleFrom(
                 minimumSize: const Size(36, 36), padding: EdgeInsets.zero),
           ),
@@ -1350,7 +885,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             onPressed:
                 _page < pageCount - 1 ? () => setState(() => _page++) : null,
             icon: const Icon(Icons.chevron_right, size: 20),
-            tooltip: 'Next',
+            tooltip: 'Next (PgDn)',
             style: IconButton.styleFrom(
                 minimumSize: const Size(36, 36), padding: EdgeInsets.zero),
           ),
@@ -1360,30 +895,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   // ---------------------------------------------------------------- helpers
-  String _money(double v) {
-    if (v.abs() >= 1000000) return '\$${(v / 1000000).toStringAsFixed(1)}M';
-    if (v.abs() >= 1000) return '\$${(v / 1000).toStringAsFixed(1)}k';
-    return '\$${v.toStringAsFixed(0)}';
-  }
-
-  Widget _emptyCard(ThemeData theme, IconData icon, String msg) {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1.5),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: theme.colorScheme.outline),
-          const SizedBox(width: 12),
-          Text(msg, style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
-        ],
-      ),
-    );
-  }
-
   Widget _emptyCenter(ThemeData theme, IconData icon, String msg) {
     return Center(
       child: Column(
@@ -1397,7 +908,42 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildError(ThemeData theme) {
+  /// First-run state: no database has been configured yet.
+  Widget _buildSetup(ThemeData theme) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 460),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.folder_open_rounded,
+                  size: 56, color: theme.colorScheme.primary),
+              const SizedBox(height: 16),
+              Text('Choose your expenses database',
+                  style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Text(
+                  'Point the app at the SQLite file that contains your '
+                  'expenses table. You can change it later in Settings.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => showDbPathDialog(context, ref),
+                icon: const Icon(Icons.storage_rounded),
+                label: const Text('Choose database…'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError(ThemeData theme, String error) {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 460),
@@ -1412,12 +958,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               Text("Couldn't load your data",
                   style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
-              Text(_error!,
+              Text(error,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               const SizedBox(height: 8),
-              Text('Current source: ${DatabaseService().currentPath}',
+              Text(
+                  'Current source: ${DatabaseService().currentPath ?? 'not configured'}',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
@@ -1428,7 +975,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 alignment: WrapAlignment.center,
                 children: [
                   OutlinedButton.icon(
-                    onPressed: _loadData,
+                    onPressed: () => ref.invalidate(dashboardDataProvider),
                     icon: const Icon(Icons.refresh),
                     label: const Text('Retry'),
                   ),

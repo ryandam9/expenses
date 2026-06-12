@@ -17,8 +17,8 @@ class DataReloadNotifier extends Notifier<int> {
 final dataReloadProvider =
     NotifierProvider<DataReloadNotifier, int>(DataReloadNotifier.new);
 
-/// The configured database path, persisted. An empty string means "use the
-/// built-in default".
+/// The configured database path, persisted. An empty string means "not
+/// configured yet" (the dashboard shows its first-run setup state).
 class DbPathNotifier extends Notifier<String> {
   @override
   String build() => ref.read(sharedPreferencesProvider).getString('dbPath') ?? '';

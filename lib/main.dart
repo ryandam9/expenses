@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,10 +12,9 @@ import 'providers/prefs_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (!kIsWeb) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
+  // Desktop-only app: SQLite goes through the FFI factory everywhere.
+  sqfliteFfiInit();
+  databaseFactory = databaseFactoryFfi;
   final prefs = await SharedPreferences.getInstance();
   // Apply the saved data-source path before the first query runs.
   final savedPath = prefs.getString('dbPath');

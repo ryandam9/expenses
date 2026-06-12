@@ -19,6 +19,10 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
 
   List<String> _categories = [];
   List<String> _years = [];
+  // Months (1-12) that actually have data in the selected year, so the
+  // dropdown doesn't offer empty months.
+  List<int> _months = [];
+  String? _error;
 
   String _mode = 'monthly'; // 'monthly' | 'custom'
   String? _selYear;
@@ -38,23 +42,42 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
   Future<void> _loadOptions() async {
     try {
       final years = await _db.getYears();
-      final cats =
-          await _db.getCategoriesForPeriod(filter: ref.read(filterProvider));
-      if (mounted) {
-        setState(() {
-          _categories = cats;
-          _years = years;
-          _selYear = years.isNotEmpty ? years.first : null;
-        });
-      }
-    } catch (_) {}
+      final first = years.isNotEmpty ? years.first : null;
+      final months =
+          first == null ? <int>[] : await _monthsForYear(first);
+      if (!mounted) return;
+      setState(() {
+        _error = null;
+        _years = years;
+        _months = months;
+        _selYear = first;
+        _selMonth = 0;
+      });
+      // Apply the default selection so the dropdowns and the data agree —
+      // previously the year showed as selected without being applied.
+      _applyMonthly();
+    } catch (e) {
+      debugPrint('FilterPanel: failed to load filter options: $e');
+      if (!mounted) return;
+      setState(() => _error = e is DatabaseNotConfiguredException
+          ? 'No data source configured yet.'
+          : 'Could not read the database.');
+    }
+  }
+
+  Future<List<int>> _monthsForYear(String year) async {
+    final mos = await _db.getMonthsForYear(year);
+    return mos.map(int.parse).where((m) => m >= 1 && m <= 12).toList();
   }
 
   Future<void> _loadPeriodCategories(AppFilter f) async {
     try {
       final cats = await _db.getCategoriesForPeriod(filter: f);
       if (!mounted) return;
-      setState(() => _categories = cats);
+      setState(() {
+        _error = null;
+        _categories = cats;
+      });
       // Drop any explicit selections that no longer exist in this period.
       if (!f.allCategories && f.categories.isNotEmpty) {
         final pruned = f.categories.where(cats.contains).toList();
@@ -62,7 +85,13 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
           ref.read(filterProvider.notifier).setCategories(pruned, cats);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('FilterPanel: failed to load categories: $e');
+      if (!mounted) return;
+      setState(() => _error = e is DatabaseNotConfiguredException
+          ? 'No data source configured yet.'
+          : 'Could not read the database.');
+    }
   }
 
   String _lastDay(int year, int month) =>
@@ -79,6 +108,23 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
       notifier.setRange(
           '$year-$mm-01', '$year-$mm-${_lastDay(int.parse(year), _selMonth)}');
     }
+  }
+
+  Future<void> _selectYear(String year) async {
+    List<int> months = _months;
+    try {
+      months = await _monthsForYear(year);
+    } catch (e) {
+      debugPrint('FilterPanel: failed to load months for $year: $e');
+    }
+    if (!mounted) return;
+    setState(() {
+      _selYear = year;
+      _months = months;
+      // Keep the month only if it exists in the new year.
+      if (_selMonth != 0 && !months.contains(_selMonth)) _selMonth = 0;
+    });
+    _applyMonthly();
   }
 
   Future<void> _pickRange(BuildContext context) async {
@@ -122,7 +168,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
       }
     });
     // Refresh the year/category options when the data source changes.
-    ref.listen(dataReloadProvider, (_, __) => _loadOptions());
+    ref.listen(dataReloadProvider, (_, _) => _loadOptions());
 
     return Container(
       width: 288,
@@ -144,7 +190,10 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                 if (filter.hasAnyFilter)
                   TextButton(
                     onPressed: () {
-                      setState(() => _selMonth = 0);
+                      setState(() {
+                        _selYear = null;
+                        _selMonth = 0;
+                      });
                       ref.read(filterProvider.notifier).clearAll();
                     },
                     style: TextButton.styleFrom(
@@ -156,6 +205,28 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
               ],
             ),
           ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: cs.errorContainer.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: cs.error),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(_error!,
+                          style: TextStyle(fontSize: 11.5, color: cs.error)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: SegmentedButton<String>(
@@ -218,6 +289,9 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
     return Column(
       children: [
         DropdownMenu<String>(
+          // DropdownMenu only reads initialSelection once, so re-key it when
+          // the selection is changed programmatically (e.g. Reset).
+          key: ValueKey('year-$_selYear'),
           initialSelection: _selYear,
           enableSearch: false,
           expandedInsets: EdgeInsets.zero,
@@ -226,14 +300,12 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
           dropdownMenuEntries:
               _years.map((y) => DropdownMenuEntry(value: y, label: y)).toList(),
           onSelected: (v) {
-            if (v != null) {
-              setState(() => _selYear = v);
-              _applyMonthly();
-            }
+            if (v != null) _selectYear(v);
           },
         ),
         const SizedBox(height: 10),
         DropdownMenu<int>(
+          key: ValueKey('month-$_selMonth-${_months.join(',')}'),
           initialSelection: _selMonth,
           enableSearch: false,
           expandedInsets: EdgeInsets.zero,
@@ -241,7 +313,8 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
           leadingIcon: const Icon(Icons.calendar_month, size: 18),
           dropdownMenuEntries: [
             const DropdownMenuEntry(value: 0, label: 'Whole year'),
-            for (var m = 1; m <= 12; m++)
+            // Only months that actually have transactions in the year.
+            for (final m in _months)
               DropdownMenuEntry(value: m, label: _monthNames[m - 1]),
           ],
           onSelected: (v) {
