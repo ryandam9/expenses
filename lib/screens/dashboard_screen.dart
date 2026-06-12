@@ -374,40 +374,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   // ---------------------------------------------------------------- KPI header
   Widget _buildKpiHeader(
       ThemeData theme, List<Expense> rows, DashboardData data) {
-    double totalDebits = 0, totalCredits = 0, largest = 0;
-    int debitCount = 0;
+    double totalDebits = 0, largest = 0;
     for (final e in rows) {
       if (e.debit > 0) {
         totalDebits += e.debit;
-        debitCount++;
         if (e.debit > largest) largest = e.debit;
       }
-      if (e.credit > 0) totalCredits += e.credit;
     }
-    final net = totalCredits - totalDebits;
-    final avgExpense = debitCount == 0 ? 0.0 : totalDebits / debitCount;
-    final savingsRate = totalCredits > 0 ? (net / totalCredits * 100) : 0.0;
-    final green = Colors.green.shade600;
 
     // "vs previous period" deltas only make sense against unsearched totals.
-    final showDeltas = _query.isEmpty;
-    final debitDelta = showDeltas
+    final debitDelta = _query.isEmpty
         ? _delta(theme, totalDebits, data.prevDebits, upIsGood: false)
-        : null;
-    final creditDelta = showDeltas
-        ? _delta(theme, totalCredits, data.prevCredits, upIsGood: true)
         : null;
 
     final tiles = <Widget Function(double)>[
       (w) => _kpi(theme, w, 'Expenses', currency0.format(totalDebits),
           Icons.south_west, theme.colorScheme.error,
           delta: debitDelta),
-      (w) => _kpi(theme, w, 'Income', currency0.format(totalCredits),
-          Icons.north_east, green,
-          delta: creditDelta),
-      (w) => _kpi(theme, w, 'Net', currency0.format(net),
-          Icons.account_balance_wallet,
-          net >= 0 ? green : theme.colorScheme.error),
       (w) => _kpi(
           theme,
           w,
@@ -415,13 +398,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           NumberFormat.decimalPattern().format(rows.length),
           Icons.receipt_long,
           theme.colorScheme.primary),
-      (w) => _kpi(theme, w, 'Avg expense', currency0.format(avgExpense),
-          Icons.calculate_outlined, theme.colorScheme.tertiary),
       (w) => _kpi(theme, w, 'Largest', currency0.format(largest),
           Icons.trending_up, theme.colorScheme.error),
-      (w) => _kpi(theme, w, 'Savings rate',
-          '${savingsRate.toStringAsFixed(0)}%', Icons.savings_outlined,
-          savingsRate >= 0 ? green : theme.colorScheme.error),
     ];
 
     return Padding(
