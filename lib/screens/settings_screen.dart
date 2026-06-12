@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../theme/app_themes.dart';
 import '../services/database_service.dart';
@@ -675,22 +674,13 @@ class _TypographyControls extends ConsumerWidget {
           label: const Text('Font family'),
           leadingIcon: const Icon(Icons.font_download_outlined, size: 18),
           menuHeight: 360,
-          dropdownMenuEntries: systemFonts.map((f) {
-            // Render each option in its own font so the list previews itself.
-            TextStyle? style;
-            if (f != 'System Default') {
-              try {
-                style = GoogleFonts.getFont(f);
-              } catch (_) {
-                style = null;
-              }
-            }
-            return DropdownMenuEntry(
-              value: f,
-              label: f,
-              labelWidget: Text(f, style: style),
-            );
-          }).toList(),
+          helperText: 'The whole Google Fonts catalogue — type to search',
+          // Entries are plain text: with ~1,800 families, rendering each in
+          // its own font would download them all; the specimen panel below
+          // previews the selected one instead.
+          dropdownMenuEntries: [
+            for (final f in systemFonts) DropdownMenuEntry(value: f, label: f),
+          ],
           onSelected: (v) {
             if (v != null) ref.read(fontFamilyProvider.notifier).select(v);
           },
