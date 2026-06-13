@@ -27,6 +27,10 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   String _search = '';
   String _section = 'transactions';
 
+  // Free-text search over the transactions table (description only).
+  final _txSearchCtrl = TextEditingController();
+  String _txSearch = '';
+
   // Category list order: alphabetical by default, or by all-time spend.
   bool _sortAlpha = true;
 
@@ -37,6 +41,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _txSearchCtrl.dispose();
     super.dispose();
   }
 
@@ -636,56 +641,109 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
 
   Widget _buildTable(ThemeData theme, List<Expense> rows) {
     final cs = theme.colorScheme;
-    final sorted = _sortRows(rows);
+    final q = _txSearch.trim().toLowerCase();
+    final filtered = q.isEmpty
+        ? rows
+        : rows
+            .where((e) => e.description.toLowerCase().contains(q))
+            .toList();
+    final sorted = _sortRows(filtered);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: cs.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: cs.outlineVariant, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: cs.shadow.withValues(alpha: 0.06),
-              blurRadius: 18,
-              offset: const Offset(0, 6),
+      child: Column(
+        children: [
+          TextField(
+            controller: _txSearchCtrl,
+            decoration: InputDecoration(
+              hintText: 'Search transaction description…',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _txSearch.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        _txSearchCtrl.clear();
+                        setState(() => _txSearch = '');
+                      },
+                    ),
+              isDense: true,
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              height: 40,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+            onChanged: (v) => setState(() => _txSearch = v),
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: Container(
+              clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                color: cs.surfaceContainerHigh.withValues(alpha: 0.55),
-                border: Border(
-                    bottom: BorderSide(color: cs.outlineVariant, width: 1)),
+                color: cs.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cs.outlineVariant, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: cs.shadow.withValues(alpha: 0.06),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  _headerCell(theme, 'DATE', 110, sortKey: 'date'),
-                  _headerCell(theme, 'DESCRIPTION', null,
-                      sortKey: 'description'),
-                  _headerCell(theme, 'BANK', 100, sortKey: 'bank'),
-                  _headerCell(theme, 'AMOUNT', 110,
-                      right: true, sortKey: 'amount'),
-                  const SizedBox(width: 18),
-                  _headerCell(theme, 'CATEGORY', 150, sortKey: 'category'),
+                  Container(
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHigh.withValues(alpha: 0.55),
+                      border: Border(
+                          bottom:
+                              BorderSide(color: cs.outlineVariant, width: 1)),
+                    ),
+                    child: Row(
+                      children: [
+                        _headerCell(theme, '#', 52),
+                        _headerCell(theme, 'DATE', 110, sortKey: 'date'),
+                        _headerCell(theme, 'DESCRIPTION', null,
+                            sortKey: 'description'),
+                        _headerCell(theme, 'BANK', 100, sortKey: 'bank'),
+                        _headerCell(theme, 'AMOUNT', 110,
+                            right: true, sortKey: 'amount'),
+                        const SizedBox(width: 18),
+                        _headerCell(theme, 'CATEGORY', 150,
+                            sortKey: 'category'),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: sorted.isEmpty
+                        ? _emptyTableState(theme)
+                        : SelectionArea(
+                            child: ListView.builder(
+                              itemCount: sorted.length,
+                              itemBuilder: (context, i) =>
+                                  _tableRow(theme, sorted[i], i),
+                            ),
+                          ),
+                  ),
                 ],
               ),
             ),
-            Expanded(
-              child: SelectionArea(
-                child: ListView.builder(
-                  itemCount: sorted.length,
-                  itemBuilder: (context, i) => _tableRow(theme, sorted[i], i),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyTableState(ThemeData theme) {
+    final cs = theme.colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_off, size: 36, color: cs.outline),
+          const SizedBox(height: 10),
+          Text('No transactions match your search',
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: cs.onSurfaceVariant)),
+        ],
       ),
     );
   }
@@ -764,6 +822,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       ),
       child: Row(
         children: [
+          cell('${i + 1}', 52, color: cs.onSurfaceVariant),
           cell(_fmtDate(tx.date), 110),
           cell(tx.description, null),
           cell(tx.source, 100),
