@@ -124,4 +124,33 @@ void main() {
     expect(await svc.getMonthsForYear('2024'), ['01', '02']);
     expect(await svc.getMonthsForYear('2023'), ['12']);
   });
+
+  test('reopen switches to the new database and drops the old data', () async {
+    // The seeded database has four non-transfer rows.
+    expect(await svc.getTransactionCount(), 4);
+
+    // Point the service at a fresh, separate in-memory database.
+    await svc.reopen(inMemoryDatabasePath);
+    final db = await svc.database;
+    await db.execute('''
+      CREATE TABLE expenses (
+        date TEXT, description TEXT, debit TEXT, credit TEXT,
+        source TEXT, category TEXT
+      )
+    ''');
+    await db.insert('expenses', {
+      'date': '2025-06-01',
+      'description': 'Only entry',
+      'debit': '5',
+      'credit': '0',
+      'source': 'BankC',
+      'category': 'FOOD',
+    });
+
+    // Queries must reflect the new database, never the previous one's rows.
+    final rows = await svc.getExpenses();
+    expect(rows.length, 1);
+    expect(rows.single.description, 'Only entry');
+    expect(await svc.getTransactionCount(), 1);
+  });
 }
