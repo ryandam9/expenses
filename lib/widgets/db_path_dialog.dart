@@ -14,8 +14,11 @@ Future<bool> showDbPathDialog(BuildContext context, WidgetRef ref) async {
   );
   if (result == null) return false;
   final path = result.trim();
-  ref.read(dbPathProvider.notifier).set(path);
+  // Repoint the service at the new file *before* notifying any provider, so
+  // every dependent reload re-queries the new database rather than racing
+  // against the still-open previous connection.
   await DatabaseService().reopen(path);
+  ref.read(dbPathProvider.notifier).set(path);
   ref.read(dataReloadProvider.notifier).bump();
   return true;
 }

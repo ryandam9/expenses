@@ -54,8 +54,15 @@ class DatabaseService {
   /// service (back to the first-run state).
   Future<void> reopen(String path) async {
     overridePath = path.trim().isEmpty ? null : path.trim();
-    await _db?.close();
+    // Drop the cached handle *before* awaiting the close. A query that races in
+    // while the old connection is still closing would otherwise see a non-null
+    // [_db] and reuse it, rendering the previous database's transactions.
+    // Clearing it first means any such query reopens against [overridePath].
+    // Nulling first also guarantees the handle is released even if close()
+    // throws (e.g. an operation was in flight on it).
+    final previous = _db;
     _db = null;
+    await previous?.close();
   }
 
   // Delegates to the pure, unit-tested builder in query_builder.dart. The
