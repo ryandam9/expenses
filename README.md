@@ -20,7 +20,8 @@ searchable transaction table plus KPIs and charts.
   (`category = TRANSFERS`) are excluded everywhere.
 - **Theming** — a set of curated colour themes (light/dark/system) with a
   colour-intensity setting (tonal / vibrant / expressive seed-scheme
-  variants), selectable Google Fonts and text size, all persisted.
+  variants), all persisted. Typography is a fixed pairing — Space Grotesk for
+  the UI and JetBrains Mono for figures, so amounts stay tabular and aligned.
 
 ## Data format
 
