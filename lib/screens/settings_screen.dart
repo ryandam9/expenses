@@ -353,7 +353,6 @@ class _Swatch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Tooltip(
       message: appTheme.name,
       child: InkWell(
