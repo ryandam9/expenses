@@ -43,7 +43,7 @@ class DashboardScreen extends ConsumerWidget {
                     style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900, letterSpacing: -0.4)),
                 const SizedBox(height: 2),
-                Text('Your spending at a glance, straight from your database.',
+                Text('Your latest month at a glance, straight from your database.',
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: cs.onSurfaceVariant)),
               ],
@@ -83,21 +83,42 @@ class DashboardScreen extends ConsumerWidget {
           body: 'Your database has no spending to summarise.');
     }
 
-    double expenses = 0, income = 0;
+    // Scope the whole dashboard to the most recent month that has data (the
+    // dataset may be historical, so "last month" means the latest month
+    // present rather than the previous calendar month).
+    var latestKey = '';
     for (final e in all) {
+      if (e.date.length >= 7) {
+        final k = e.date.substring(0, 7);
+        if (k.compareTo(latestKey) > 0) latestKey = k;
+      }
+    }
+    final month = latestKey.isEmpty
+        ? all
+        : all
+            .where((e) => e.date.length >= 7 && e.date.substring(0, 7) == latestKey)
+            .toList();
+    final monthDt = DateTime.tryParse('$latestKey-01');
+    final monthLabel =
+        monthDt == null ? latestKey : DateFormat('MMMM yyyy').format(monthDt);
+
+    double expenses = 0, income = 0;
+    for (final e in month) {
       expenses += e.debit;
       income += e.credit;
     }
     final net = income - expenses;
-    final byCategory = debitTotalsBy(all, (e) => e.category);
+    final byCategory = debitTotalsBy(month, (e) => e.category);
     final catEntries = byCategory.entries.toList();
     final maxCat = catEntries.isEmpty ? 0.0 : catEntries.first.value;
-    final recent = all.take(6).toList(); // already newest-first
+    final recent = month.take(6).toList(); // already newest-first
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
       children: [
-        _kpiRow(theme, expenses, income, net, all.length),
+        _monthBanner(theme, monthLabel),
+        const SizedBox(height: 14),
+        _kpiRow(theme, expenses, income, net, month.length),
         const SizedBox(height: 22),
         _sectionTitle(theme, 'Expenses by Category'),
         const SizedBox(height: 12),
@@ -107,6 +128,31 @@ class DashboardScreen extends ConsumerWidget {
         const SizedBox(height: 12),
         _recentCard(context, ref, theme, recent),
       ],
+    );
+  }
+
+  // A small pill stating which month the dashboard is summarising.
+  Widget _monthBanner(ThemeData theme, String monthLabel) {
+    final cs = theme.colorScheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: brutalBox(cs, color: cs.primary, radius: 10, dx: 3, dy: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.calendar_month_rounded,
+                size: 15, color: cs.onPrimary),
+            const SizedBox(width: 7),
+            Text(monthLabel.toUpperCase(),
+                style: theme.textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                    color: cs.onPrimary)),
+          ],
+        ),
+      ),
     );
   }
 
