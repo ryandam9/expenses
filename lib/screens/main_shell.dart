@@ -9,6 +9,7 @@ import '../providers/theme_provider.dart';
 import '../theme/app_themes.dart';
 import '../theme/app_ui.dart';
 import '../theme/brutalism.dart';
+import '../theme/typography.dart';
 import '../widgets/top_bar.dart';
 
 /// App frame: a branded sidebar (logo, navigation, theme toggle) next to the
@@ -70,9 +71,14 @@ class _Sidebar extends ConsumerWidget {
     // own dark [ThemeData] from the active accent — and wrapping the rail in it
     // — keeps every descendant (labels, nav pills, toggles) legible on dark
     // without hardcoding a single foreground colour.
-    final railTheme = appThemes[ref.watch(themeIndexProvider)].themeData(
+    final railBase = appThemes[ref.watch(themeIndexProvider)].themeData(
       Brightness.dark,
       variant: ref.watch(schemeVariantProvider),
+    );
+    // Carry the app's baked-in fonts (Space Grotesk) onto the rail so its labels
+    // match the rest of the UI rather than falling back to the platform font.
+    final railTheme = railBase.copyWith(
+      textTheme: appTextTheme(railBase.textTheme),
     );
     final theme = railTheme;
     final cs = railTheme.colorScheme;
