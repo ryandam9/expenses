@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'brutalism.dart';
 
 /// A single selectable theme. A theme is described by three seed colours
 /// (primary / secondary / tertiary) — the full [ThemeData] for either
@@ -70,48 +71,51 @@ class AppTheme {
         color: scheme.surfaceContainerLowest,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: scheme.outlineVariant, width: 1),
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: brutalLine(scheme), width: 2),
         ),
       ),
-      dividerTheme: DividerThemeData(color: scheme.outlineVariant),
+      dividerTheme: DividerThemeData(color: brutalLine(scheme), thickness: 1.5),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
+        fillColor: scheme.surface,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: scheme.outlineVariant),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: brutalLine(scheme), width: 2),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: scheme.outlineVariant),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: brutalLine(scheme), width: 2),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: scheme.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: scheme.primary, width: 2.5),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: brutalLine(scheme), width: 2),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          side: BorderSide(color: scheme.outlineVariant),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          side: BorderSide(color: brutalLine(scheme), width: 2),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
@@ -120,11 +124,12 @@ class AppTheme {
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
           side: WidgetStatePropertyAll(
-            BorderSide(color: scheme.outlineVariant),
+            BorderSide(color: brutalLine(scheme), width: 2),
           ),
         ),
       ),
       chipTheme: ChipThemeData(
+        side: BorderSide(color: brutalLine(scheme), width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       snackBarTheme: SnackBarThemeData(
@@ -211,106 +216,113 @@ List<Color> buildChartColors(List<Color> base, int count) {
   return out;
 }
 
-/// The selectable accent themes: a curated set of clean, professional
-/// fintech-style palettes. Each leads with a single confident accent (the
-/// swatch shown in Settings) backed by two supporting seeds, plus a six-colour
-/// chart palette of mutually distinct, data-legible hues. The default —
-/// Indigo — is the calm royal blue the dashboard leads with.
+/// The selectable themes, built from six bold colour pairs (a vivid accent and
+/// a high-contrast partner). Each pair drives a Material scheme plus a six
+/// colour, mutually distinct chart palette. For pairs whose vivid colour is too
+/// light to read as foreground on light surfaces (lime, yellow, mint, pale
+/// teal), the darker partner leads as [primary] and the vivid colour carries
+/// the accent through [secondary] and the charts.
 const appThemes = <AppTheme>[
+  // #6260FF / #E4E4FF
   AppTheme(
-    id: 'indigo',
-    name: 'Indigo',
-    icon: Icons.water_drop_rounded,
-    primary: Color(0xFF2563EB),
-    secondary: Color(0xFF0EA5E9),
-    tertiary: Color(0xFF6366F1),
+    id: 'periwinkle',
+    name: 'Periwinkle',
+    icon: Icons.bubble_chart_rounded,
+    primary: Color(0xFF6260FF),
+    secondary: Color(0xFF34E0A1),
+    tertiary: Color(0xFFFF6584),
     chartColors: [
-      Color(0xFF2563EB),
-      Color(0xFF0EA5E9),
-      Color(0xFF6366F1),
-      Color(0xFF14B8A6),
-      Color(0xFFF59E0B),
-      Color(0xFFEF4444),
+      Color(0xFF6260FF),
+      Color(0xFF34E0A1),
+      Color(0xFFFCDB32),
+      Color(0xFFFF6584),
+      Color(0xFF3447AA),
+      Color(0xFF9FE870),
     ],
   ),
+  // #9FE870 / #163300
   AppTheme(
-    id: 'emerald',
-    name: 'Emerald',
+    id: 'lime',
+    name: 'Lime',
     icon: Icons.eco_rounded,
-    primary: Color(0xFF0D9488),
-    secondary: Color(0xFF10B981),
-    tertiary: Color(0xFF0891B2),
+    primary: Color(0xFF163300),
+    secondary: Color(0xFF9FE870),
+    tertiary: Color(0xFF34E0A1),
     chartColors: [
-      Color(0xFF0D9488),
-      Color(0xFF10B981),
-      Color(0xFF0891B2),
-      Color(0xFF6366F1),
-      Color(0xFFF59E0B),
-      Color(0xFFEF4444),
+      Color(0xFF163300),
+      Color(0xFF9FE870),
+      Color(0xFF34E0A1),
+      Color(0xFFFCDB32),
+      Color(0xFF3447AA),
+      Color(0xFF6260FF),
     ],
   ),
+  // #BDD9D7 / #03363D
   AppTheme(
-    id: 'rose',
-    name: 'Rose',
-    icon: Icons.favorite_rounded,
-    primary: Color(0xFFDB2777),
-    secondary: Color(0xFFF43F5E),
-    tertiary: Color(0xFF8B5CF6),
+    id: 'mist',
+    name: 'Mist',
+    icon: Icons.waves_rounded,
+    primary: Color(0xFF03363D),
+    secondary: Color(0xFF34E0A1),
+    tertiary: Color(0xFFBDD9D7),
     chartColors: [
-      Color(0xFFDB2777),
-      Color(0xFFF43F5E),
-      Color(0xFF8B5CF6),
-      Color(0xFF0EA5E9),
-      Color(0xFFF59E0B),
-      Color(0xFF10B981),
+      Color(0xFF03363D),
+      Color(0xFF34E0A1),
+      Color(0xFFBDD9D7),
+      Color(0xFFFCDB32),
+      Color(0xFF6260FF),
+      Color(0xFFFF6584),
     ],
   ),
+  // #3447AA / #FBEAEB
   AppTheme(
-    id: 'amber',
-    name: 'Amber',
-    icon: Icons.local_fire_department_rounded,
-    primary: Color(0xFFEA580C),
-    secondary: Color(0xFFF59E0B),
-    tertiary: Color(0xFFD97706),
+    id: 'cobalt',
+    name: 'Cobalt',
+    icon: Icons.bolt_rounded,
+    primary: Color(0xFF3447AA),
+    secondary: Color(0xFFFF6584),
+    tertiary: Color(0xFFFCDB32),
     chartColors: [
-      Color(0xFFEA580C),
-      Color(0xFFF59E0B),
-      Color(0xFF0D9488),
-      Color(0xFF2563EB),
-      Color(0xFFDB2777),
-      Color(0xFF64748B),
+      Color(0xFF3447AA),
+      Color(0xFFFF6584),
+      Color(0xFFFCDB32),
+      Color(0xFF34E0A1),
+      Color(0xFF6260FF),
+      Color(0xFF9FE870),
     ],
   ),
+  // #FCDB32 / #141D38
   AppTheme(
-    id: 'violet',
-    name: 'Violet',
-    icon: Icons.auto_awesome_rounded,
-    primary: Color(0xFF7C3AED),
-    secondary: Color(0xFFA855F7),
-    tertiary: Color(0xFF6366F1),
+    id: 'sunbeam',
+    name: 'Sunbeam',
+    icon: Icons.wb_sunny_rounded,
+    primary: Color(0xFF141D38),
+    secondary: Color(0xFFFCDB32),
+    tertiary: Color(0xFF6260FF),
     chartColors: [
-      Color(0xFF7C3AED),
-      Color(0xFFA855F7),
-      Color(0xFF6366F1),
-      Color(0xFF0EA5E9),
-      Color(0xFFEC4899),
-      Color(0xFFF59E0B),
+      Color(0xFF141D38),
+      Color(0xFFFCDB32),
+      Color(0xFF34E0A1),
+      Color(0xFF6260FF),
+      Color(0xFFFF6584),
+      Color(0xFF9FE870),
     ],
   ),
+  // #34E0A1 / #000000
   AppTheme(
-    id: 'slate',
-    name: 'Slate',
-    icon: Icons.dashboard_rounded,
-    primary: Color(0xFF475569),
-    secondary: Color(0xFF0EA5E9),
-    tertiary: Color(0xFF334155),
+    id: 'mint',
+    name: 'Mint',
+    icon: Icons.spa_rounded,
+    primary: Color(0xFF141414),
+    secondary: Color(0xFF34E0A1),
+    tertiary: Color(0xFF6260FF),
     chartColors: [
-      Color(0xFF334155),
-      Color(0xFF0EA5E9),
-      Color(0xFF14B8A6),
-      Color(0xFFF59E0B),
-      Color(0xFFEF4444),
-      Color(0xFF8B5CF6),
+      Color(0xFF34E0A1),
+      Color(0xFF141D38),
+      Color(0xFFFCDB32),
+      Color(0xFF6260FF),
+      Color(0xFFFF6584),
+      Color(0xFF3447AA),
     ],
   ),
 ];

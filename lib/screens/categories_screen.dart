@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/expense.dart';
 import '../providers/category_explorer_provider.dart';
 import '../services/database_service.dart';
+import '../theme/brutalism.dart';
 import '../utils/category_icons.dart';
 import '../utils/format.dart';
 import '../widgets/category_pill.dart';
@@ -60,7 +61,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             decoration: BoxDecoration(
               color: cs.surface,
               border: Border(
-                  bottom: BorderSide(color: cs.outlineVariant, width: 1)),
+                  bottom: BorderSide(color: brutalLine(cs), width: 2)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,7 +100,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       width: 300,
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow,
-        border: Border(right: BorderSide(color: cs.outlineVariant, width: 1)),
+        border: Border(right: BorderSide(color: brutalLine(cs), width: 2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -545,19 +546,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       width: width,
       child: Container(
         padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(color.withValues(alpha: 0.07),
-              theme.colorScheme.surfaceContainerLowest),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: color.withValues(alpha: 0.26), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.13),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
+        decoration: brutalBox(theme.colorScheme, shadowColor: color),
         child: Row(
           children: [
             Container(
@@ -674,18 +663,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           Expanded(
             child: Container(
               clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: cs.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: cs.outlineVariant, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: cs.shadow.withValues(alpha: 0.06),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
+              decoration: brutalBox(cs),
               child: Column(
                 children: [
                   Container(

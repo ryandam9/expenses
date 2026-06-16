@@ -7,6 +7,7 @@ import '../models/expense.dart';
 import '../providers/theme_provider.dart';
 import '../services/query_builder.dart';
 import '../theme/app_themes.dart';
+import '../theme/brutalism.dart';
 import '../utils/category_icons.dart';
 import '../utils/format.dart';
 
@@ -112,29 +113,8 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
   /// Card chrome shared by every chart: a faintly primary-tinted surface with
   /// a soft drop shadow so the cards lift off the ambient background instead
   /// of sitting flat on it.
-  BoxDecoration _cardDecoration(ThemeData theme) {
-    final cs = theme.colorScheme;
-    return BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          cs.surfaceContainerLowest,
-          Color.alphaBlend(
-              cs.primary.withValues(alpha: 0.04), cs.surfaceContainerLowest),
-        ],
-      ),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: cs.outlineVariant, width: 1),
-      boxShadow: [
-        BoxShadow(
-          color: cs.shadow.withValues(alpha: 0.07),
-          blurRadius: 22,
-          offset: const Offset(0, 8),
-        ),
-      ],
-    );
-  }
+  BoxDecoration _cardDecoration(ThemeData theme) =>
+      brutalBox(theme.colorScheme, radius: 16);
 
   Widget _emptyCard(ThemeData theme, IconData icon, String msg) {
     return Container(
