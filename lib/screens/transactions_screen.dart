@@ -548,7 +548,11 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: dashboardNumberStyle(theme.textTheme.titleLarge),
                   ),
-                  ?delta,
+                  // Always reserve the "vs prev" line's height so the tile is the
+                  // same height whether or not a delta is shown — otherwise the
+                  // KPI header (and the search bar + table below it) jumps as
+                  // categories are toggled.
+                  SizedBox(height: 16, child: delta),
                 ],
               ),
             ),
@@ -900,12 +904,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                         style: isAmount
                             ? tableNumberStyle(
                                 theme,
+                                fontSize: 14.5,
                                 color: isDebit
                                     ? theme.colorScheme.error
                                     : Colors.green.shade700,
                               )
                             : TextStyle(
-                                fontSize: 12.5,
+                                fontSize: 14.5,
                                 height: isDescription ? 1.35 : null,
                                 fontWeight: FontWeight.w500,
                                 color: theme.colorScheme.onSurface,

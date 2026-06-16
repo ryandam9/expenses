@@ -847,11 +847,12 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
         style: numeric
             ? tableNumberStyle(
                 theme,
+                fontSize: 14.5,
                 color: color,
                 fontWeight: weight ?? FontWeight.w800,
               )
             : TextStyle(
-                fontSize: 12.5,
+                fontSize: 14.5,
                 fontWeight: weight ?? FontWeight.w500,
                 color: color ?? cs.onSurface,
               ),
