@@ -72,8 +72,8 @@ class AppPageHeader extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -132,8 +132,8 @@ class AppSectionTitle extends StatelessWidget {
               Text(
                 title,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.1,
                 ),
               ),
               if (subtitle != null)

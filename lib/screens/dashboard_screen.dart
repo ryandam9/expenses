@@ -328,7 +328,7 @@ class DashboardScreen extends ConsumerWidget {
     return Container(
       width: w,
       padding: const EdgeInsets.all(16),
-      decoration: brutalBox(cs, shadowColor: accent),
+      decoration: brutalBox(cs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -1,38 +1,42 @@
 import 'package:flutter/material.dart';
 
-/// Shared surface helpers. The original app used a hard neo-brutalist
-/// treatment; these helpers keep the same API while rendering calmer,
-/// production-dashboard surfaces with fine borders and soft depth.
+/// Shared surface helpers for the app's "refined brutalist" look: crisp slate
+/// borders (not pure black) and a single small, hard offset shadow. Bold and
+/// tactile, but calmer than a classic neo-brutalist treatment — fewer, quieter
+/// shadows and one consistent edge colour.
 
-/// The outline colour used by custom panels and controls.
+/// The outline colour used by panels, cards and controls — a slate that reads
+/// as a deliberate edge without the harshness of pure black.
 Color brutalLine(ColorScheme cs) => cs.brightness == Brightness.dark
-    ? const Color(0xFF3B4354)
-    : const Color(0xFFD7DCE7);
+    ? const Color(0xFF515667)
+    : const Color(0xFF23232B);
 
-/// A soft shadow that reads as elevation without overpowering dense data UI.
+/// A hard offset shadow (no blur) that gives a card a tactile, printed feel.
+/// [color] defaults to the slate outline so an element's edge and its shadow
+/// agree; pass a colour for an accented lift.
 BoxShadow brutalShadow(
   ColorScheme cs, {
-  double dx = 4,
-  double dy = 4,
+  double dx = 3,
+  double dy = 3,
   Color? color,
 }) => BoxShadow(
-  color: (color ?? cs.shadow).withValues(
-    alpha: cs.brightness == Brightness.dark ? 0.28 : 0.12,
+  color: (color ?? brutalLine(cs)).withValues(
+    alpha: cs.brightness == Brightness.dark ? 0.5 : 0.9,
   ),
   offset: Offset(dx, dy),
-  blurRadius: 18,
-  spreadRadius: -8,
+  blurRadius: 0,
+  spreadRadius: 0,
 );
 
-/// A complete app panel decoration.
+/// A complete app panel decoration: a slate border plus one hard offset shadow.
 BoxDecoration brutalBox(
   ColorScheme cs, {
   Color? color,
-  double radius = 10,
-  double dx = 0,
-  double dy = 8,
+  double radius = 11,
+  double dx = 3,
+  double dy = 3,
   Color? shadowColor,
-  double borderWidth = 1,
+  double borderWidth = 1.5,
 }) => BoxDecoration(
   color: color ?? cs.surfaceContainerLowest,
   borderRadius: BorderRadius.circular(radius),

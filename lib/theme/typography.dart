@@ -16,7 +16,7 @@ TextTheme appTextTheme(TextTheme base) => GoogleFonts.spaceGroteskTextTheme(base
 TextStyle? dashboardNumberStyle(
   TextStyle? base, {
   Color? color,
-  FontWeight fontWeight = FontWeight.w800,
+  FontWeight fontWeight = FontWeight.w700,
 }) {
   if (base == null) return null;
   return GoogleFonts.jetBrainsMono(
@@ -33,7 +33,7 @@ TextStyle? dashboardNumberStyle(
 TextStyle tableNumberStyle(
   ThemeData theme, {
   Color? color,
-  FontWeight fontWeight = FontWeight.w800,
+  FontWeight fontWeight = FontWeight.w700,
   double? fontSize,
 }) {
   return GoogleFonts.jetBrainsMono(
