@@ -83,10 +83,12 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final state = ref.watch(categoryExplorerProvider);
 
     return Container(
-      width: 300,
+      width: 288,
       decoration: BoxDecoration(
-        color: cs.surfaceContainerLowest.withValues(alpha: 0.72),
-        border: Border(right: BorderSide(color: brutalLine(cs), width: 1)),
+        // Match the Transactions filter sidebar exactly (same surface tone and
+        // border) so the two category panels read as one consistent component.
+        color: cs.surfaceContainerLow,
+        border: Border(right: BorderSide(color: cs.outlineVariant, width: 1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -222,7 +224,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
           borderRadius: BorderRadius.circular(10),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
             decoration: BoxDecoration(
               color: selected
                   ? cs.primary.withValues(alpha: 0.08)
@@ -235,8 +237,8 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
                   curve: Curves.easeOut,
-                  width: 19,
-                  height: 19,
+                  width: 20,
+                  height: 20,
                   decoration: BoxDecoration(
                     color: selected ? cs.primary : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
@@ -246,15 +248,15 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                     ),
                   ),
                   child: selected
-                      ? Icon(Icons.check, size: 13, color: cs.onPrimary)
+                      ? Icon(Icons.check, size: 14, color: cs.onPrimary)
                       : null,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 SizedBox(
                   width: 17,
                   child: FaIcon(
                     categoryIcon(s.category),
-                    size: 13,
+                    size: 12.5,
                     color: accent,
                   ),
                 ),
@@ -268,7 +270,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 13,
                           fontWeight: selected
                               ? FontWeight.w700
                               : FontWeight.w500,
