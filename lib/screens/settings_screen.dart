@@ -6,7 +6,6 @@ import '../theme/app_themes.dart';
 import '../services/database_service.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/theme_provider.dart';
-import '../providers/font_provider.dart';
 import '../providers/prefs_provider.dart';
 import '../theme/app_ui.dart';
 import '../theme/brutalism.dart';
@@ -14,7 +13,7 @@ import '../theme/typography.dart';
 import '../widgets/db_path_dialog.dart';
 
 /// Settings & customization, laid out as a responsive grid of cards
-/// (Appearance, Typography, Database, About) over the app's tinted canvas.
+/// (Appearance, Database, About) over the app's tinted canvas.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -28,7 +27,7 @@ class SettingsScreen extends ConsumerWidget {
           const AppPageHeader(
             icon: Icons.tune_rounded,
             title: 'Settings & Customization',
-            subtitle: 'Manage data, appearance, typography, and preferences.',
+            subtitle: 'Manage data, appearance, and preferences.',
           ),
           Expanded(
             child: Center(
@@ -44,11 +43,6 @@ class SettingsScreen extends ConsumerWidget {
                         icon: Icons.palette_outlined,
                         title: 'APPEARANCE',
                         child: _AppearanceControls(),
-                      );
-                      const typography = _Section(
-                        icon: Icons.text_fields_rounded,
-                        title: 'TYPOGRAPHY',
-                        child: _TypographyControls(),
                       );
                       const database = _Section(
                         icon: Icons.storage_rounded,
@@ -66,8 +60,6 @@ class SettingsScreen extends ConsumerWidget {
                           children: [
                             appearance,
                             SizedBox(height: 18),
-                            typography,
-                            SizedBox(height: 18),
                             database,
                             SizedBox(height: 18),
                             about,
@@ -77,20 +69,12 @@ class SettingsScreen extends ConsumerWidget {
                       return const Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              children: [
-                                appearance,
-                                SizedBox(height: 18),
-                                database,
-                              ],
-                            ),
-                          ),
+                          Expanded(child: appearance),
                           SizedBox(width: 18),
                           Expanded(
                             child: Column(
                               children: [
-                                typography,
+                                database,
                                 SizedBox(height: 18),
                                 about,
                               ],
@@ -112,7 +96,7 @@ class SettingsScreen extends ConsumerWidget {
 
 // ------------------------------------------------------------------ section
 /// A settings card with a small-caps, icon-led header (matching the mockup's
-/// "APPEARANCE / TYPOGRAPHY / DATABASE" panels).
+/// "APPEARANCE / DATABASE / ABOUT" panels).
 class _Section extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -409,163 +393,6 @@ class _VariantSelector extends ConsumerWidget {
         onSelectionChanged: (s) =>
             ref.read(schemeVariantProvider.notifier).select(s.first),
       ),
-    );
-  }
-}
-
-// --------------------------------------------------------------- typography
-class _TypographyControls extends ConsumerWidget {
-  const _TypographyControls();
-
-  // The base sizes offered by the Density dropdown, kept in sync with the
-  // app-wide text scale (main.dart divides by 14).
-  static const _densities = <(double, String)>[
-    (12, 'Compact (12px)'),
-    (14, 'Standard (14px)'),
-    (16, 'Comfortable (16px)'),
-    (18, 'Large (18px)'),
-  ];
-
-  /// The preset whose size is closest to [size], so a stored custom size still
-  /// shows a sensible selection.
-  double _nearestDensity(double size) {
-    var best = _densities.first.$1;
-    var bestDiff = (size - best).abs();
-    for (final d in _densities) {
-      final diff = (size - d.$1).abs();
-      if (diff < bestDiff) {
-        best = d.$1;
-        bestDiff = diff;
-      }
-    }
-    return best;
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final font = ref.watch(fontFamilyProvider);
-    final fontSize = ref.watch(fontSizeProvider);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        LayoutBuilder(
-          builder: (context, c) {
-            final fontField = _LabeledField(
-              label: 'Font Family',
-              child: DropdownMenu<String>(
-                initialSelection: font,
-                expandedInsets: EdgeInsets.zero,
-                enableFilter: true,
-                requestFocusOnTap: true,
-                leadingIcon: const Icon(Icons.font_download_outlined, size: 18),
-                menuHeight: 360,
-                // Entries are plain text: with ~1,800 families, rendering each in
-                // its own font would download them all; the preview below shows
-                // the selected one instead.
-                dropdownMenuEntries: [
-                  for (final f in systemFonts)
-                    DropdownMenuEntry(value: f, label: f),
-                ],
-                onSelected: (v) {
-                  if (v != null) {
-                    ref.read(fontFamilyProvider.notifier).select(v);
-                  }
-                },
-              ),
-            );
-            final densityField = _LabeledField(
-              label: 'Density / Base Size',
-              child: DropdownMenu<double>(
-                initialSelection: _nearestDensity(fontSize),
-                expandedInsets: EdgeInsets.zero,
-                requestFocusOnTap: false,
-                dropdownMenuEntries: [
-                  for (final d in _densities)
-                    DropdownMenuEntry(value: d.$1, label: d.$2),
-                ],
-                onSelected: (v) {
-                  if (v != null) ref.read(fontSizeProvider.notifier).setSize(v);
-                },
-              ),
-            );
-            // Two fields side by side when there's room, stacked when narrow.
-            if (c.maxWidth < 420) {
-              return Column(
-                children: [fontField, const SizedBox(height: 16), densityField],
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: fontField),
-                const SizedBox(width: 16),
-                Expanded(child: densityField),
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 20),
-        // Live specimen in the chosen font (the app-wide text theme already
-        // carries it, so plain styles inherit the selection).
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: cs.primary.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: cs.outlineVariant),
-          ),
-          child: Text.rich(
-            TextSpan(
-              style: TextStyle(fontSize: fontSize, height: 1.5),
-              children: [
-                const TextSpan(
-                  text:
-                      'The quick brown fox jumps over the lazy dog. This is '
-                      'a preview of your selected typography settings in the ',
-                ),
-                TextSpan(
-                  text: 'Expenses',
-                  style: TextStyle(
-                    color: cs.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const TextSpan(text: ' environment.'),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// A small label above a form control, used inside the Typography card.
-class _LabeledField extends StatelessWidget {
-  final String label;
-  final Widget child;
-  const _LabeledField({required this.label, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.labelMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 8),
-        child,
-      ],
     );
   }
 }
