@@ -5,7 +5,8 @@ import 'prefs_provider.dart';
 class FontFamilyNotifier extends Notifier<String> {
   @override
   String build() =>
-      ref.read(sharedPreferencesProvider).getString('fontFamily') ?? 'Manrope';
+      ref.read(sharedPreferencesProvider).getString('fontFamily') ??
+      'Roboto Condensed';
 
   void select(String family) {
     state = family;
@@ -16,7 +17,7 @@ class FontFamilyNotifier extends Notifier<String> {
 class FontSizeNotifier extends Notifier<double> {
   @override
   double build() =>
-      ref.read(sharedPreferencesProvider).getDouble('fontSize') ?? 13;
+      ref.read(sharedPreferencesProvider).getDouble('fontSize') ?? 14;
 
   void setSize(double size) {
     state = size;

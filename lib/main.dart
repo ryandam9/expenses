@@ -77,7 +77,7 @@ class ExpensesApp extends ConsumerWidget {
     final fontSize = ref.watch(fontSizeProvider);
     final t = appThemes[themeIndex];
 
-    final scale = fontSize / 13.0;
+    final scale = fontSize / 14.0;
 
     final light = t.themeData(Brightness.light, variant: variant);
     final dark = t.themeData(Brightness.dark, variant: variant);
