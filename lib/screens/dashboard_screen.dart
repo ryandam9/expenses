@@ -341,7 +341,18 @@ class DashboardScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: brutalLine(cs), width: 1.5),
                 ),
-                child: Icon(icon, size: 16, color: Colors.white),
+                // Pick black/white per the fill's brightness so the icon stays
+                // legible whether the accent is dark (light mode) or light
+                // (dark mode).
+                child: Icon(
+                  icon,
+                  size: 16,
+                  color:
+                      ThemeData.estimateBrightnessForColor(accent) ==
+                          Brightness.dark
+                      ? Colors.white
+                      : Colors.black,
+                ),
               ),
               const Spacer(),
             ],
@@ -621,7 +632,7 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                child: Icon(icon, size: 30, color: Colors.white),
+                child: Icon(icon, size: 30, color: cs.onPrimary),
               ),
               const SizedBox(height: 16),
               Text(

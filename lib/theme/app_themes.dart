@@ -39,11 +39,17 @@ class AppTheme {
     Brightness brightness, {
     DynamicSchemeVariant variant = DynamicSchemeVariant.tonalSpot,
   }) {
+    // The brand colours are tuned to read on light surfaces (several themes
+    // deliberately lead with a dark primary), so they're pinned only in light
+    // mode. In dark mode we seed from the theme's signature chart colour and
+    // let ColorScheme.fromSeed derive light primary/secondary/tertiary tones,
+    // so accent-coloured text and icons stay legible on dark surfaces.
+    final isLight = brightness == Brightness.light;
     final scheme = ColorScheme.fromSeed(
-      seedColor: primary,
-      primary: primary,
-      secondary: secondary,
-      tertiary: tertiary,
+      seedColor: isLight ? primary : chartColors.first,
+      primary: isLight ? primary : null,
+      secondary: isLight ? secondary : null,
+      tertiary: isLight ? tertiary : null,
       brightness: brightness,
       dynamicSchemeVariant: variant,
     );
