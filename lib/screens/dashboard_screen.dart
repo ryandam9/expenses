@@ -1,44 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/expense.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/nav_provider.dart';
+import '../services/database_service.dart';
+import '../services/query_builder.dart';
+import '../theme/brutalism.dart';
+import '../utils/category_icons.dart';
 import '../utils/format.dart';
 import '../widgets/category_pill.dart';
 
-/// The Summary dashboard: a high-level snapshot of monthly spending, budgets
-/// and savings goals. Budget and goal figures are illustrative presets (the
-/// transaction database does not store targets); the Recent Transactions panel
-/// at the bottom is driven by the live data source when one is configured.
+/// The Summary dashboard: a high-level snapshot computed entirely from the
+/// configured SQLite database (all-time, transfers excluded) — totals, the
+/// category breakdown and the most recent transactions. Rendered in the app's
+/// neo-brutalist style: flat fills, thick borders, hard offset shadows.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
-
-  static final _money = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
-  static final _money0 = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
-
-  // ----------------------------------------------------------- demo presets
-  static const _budgetSpent = 4250.0;
-  static const _budgetTotal = 5000.0;
-  static const _incoming = 12450.0;
-
-  static const _categories = <_CatBudget>[
-    _CatBudget('Housing', Icons.home_rounded, 2000, 2000),
-    _CatBudget('Groceries', Icons.shopping_cart_rounded, 450, 600),
-    _CatBudget('Transport', Icons.directions_car_rounded, 330, 300),
-    _CatBudget('Entertainment', Icons.movie_rounded, 120, 300),
-  ];
-
-  static const _goals = <_Goal>[
-    _Goal('Emergency Fund', Icons.shield_rounded, 8000, 10000),
-    _Goal('Japan Trip', Icons.flight_rounded, 1750, 5000),
-    _Goal('New Car Downpayment', Icons.directions_car_rounded, 2400, 20000),
-  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final async = ref.watch(allExpensesProvider);
 
     return Scaffold(
       body: Column(
@@ -49,351 +34,324 @@ class DashboardScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               color: cs.surface,
               border: Border(
-                  bottom: BorderSide(color: cs.outlineVariant, width: 1)),
+                  bottom: BorderSide(color: brutalLine(cs), width: 2)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Summary',
                     style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+                        fontWeight: FontWeight.w900, letterSpacing: -0.4)),
                 const SizedBox(height: 2),
-                Text('Track your spending and manage your savings targets.',
+                Text('Your spending at a glance, straight from your database.',
                     style: theme.textTheme.labelSmall
                         ?.copyWith(color: cs.onSurfaceVariant)),
               ],
             ),
           ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-              children: [
-                _topCards(theme),
-                const SizedBox(height: 26),
-                _sectionTitle(theme, 'Expenses per Category'),
-                const SizedBox(height: 12),
-                _categoryGrid(theme),
-                const SizedBox(height: 26),
-                _sectionTitle(theme, 'Savings Goals'),
-                const SizedBox(height: 12),
-                _goalRow(theme),
-                const SizedBox(height: 26),
-                const _RecentTransactions(),
-              ],
-            ),
-          ),
+          Expanded(child: _body(context, ref, theme, async)),
         ],
       ),
     );
   }
 
-  // ------------------------------------------------------------- top cards
-  Widget _topCards(ThemeData theme) {
-    return LayoutBuilder(builder: (context, c) {
-      final twoCol = c.maxWidth >= 640;
-      final expenses = _expensesCard(theme);
-      final incoming = _incomingCard(theme);
-      if (!twoCol) {
-        return Column(children: [
-          expenses,
-          const SizedBox(height: 14),
-          incoming,
-        ]);
-      }
-      return IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(flex: 3, child: expenses),
-            const SizedBox(width: 16),
-            Expanded(flex: 2, child: incoming),
-          ],
-        ),
+  Widget _body(BuildContext context, WidgetRef ref, ThemeData theme,
+      AsyncValue<List<Expense>> async) {
+    if (async.isLoading && !async.hasValue) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (async.hasError && !async.hasValue) {
+      final err = async.error;
+      final noDb = err is DatabaseNotConfiguredException;
+      return _message(
+        context,
+        ref,
+        theme,
+        icon: noDb ? Icons.storage_rounded : Icons.error_outline_rounded,
+        title: noDb ? 'No database connected' : "Couldn't load your data",
+        body: noDb
+            ? 'Connect a SQLite database to populate your dashboard.'
+            : err.toString(),
+        actionLabel: noDb ? 'Open Settings' : null,
       );
-    });
-  }
+    }
+    final all = async.requireValue;
+    if (all.isEmpty) {
+      return _message(context, ref, theme,
+          icon: Icons.inbox_rounded,
+          title: 'No transactions yet',
+          body: 'Your database has no spending to summarise.');
+    }
 
-  Widget _expensesCard(ThemeData theme) {
-    final cs = theme.colorScheme;
-    final pct = (_budgetSpent / _budgetTotal).clamp(0.0, 1.0);
-    return _card(
-      theme,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text('TOTAL MONTHLY EXPENSES',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                        letterSpacing: 0.8,
-                        fontWeight: FontWeight.w800,
-                        color: cs.onSurfaceVariant)),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text('${(pct * 100).round()}% Used',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: cs.onSurfaceVariant)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Flexible(
-                child: Text(_money.format(_budgetSpent),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w800, letterSpacing: -1)),
-              ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text('/ ${_money0.format(_budgetTotal)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(color: cs.onSurfaceVariant)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: pct,
-              minHeight: 10,
-              backgroundColor: cs.surfaceContainerHigh,
-              color: cs.primary,
-            ),
-          ),
-        ],
-      ),
+    double expenses = 0, income = 0;
+    for (final e in all) {
+      expenses += e.debit;
+      income += e.credit;
+    }
+    final net = income - expenses;
+    final byCategory = debitTotalsBy(all, (e) => e.category);
+    final catEntries = byCategory.entries.toList();
+    final maxCat = catEntries.isEmpty ? 0.0 : catEntries.first.value;
+    final recent = all.take(6).toList(); // already newest-first
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+      children: [
+        _kpiRow(theme, expenses, income, net, all.length),
+        const SizedBox(height: 22),
+        _sectionTitle(theme, 'Expenses by Category'),
+        const SizedBox(height: 12),
+        _categoryCard(context, ref, theme, catEntries, maxCat, expenses),
+        const SizedBox(height: 22),
+        _sectionTitle(theme, 'Recent Transactions'),
+        const SizedBox(height: 12),
+        _recentCard(context, ref, theme, recent),
+      ],
     );
   }
 
-  Widget _incomingCard(ThemeData theme) {
+  // ------------------------------------------------------------------- KPIs
+  Widget _kpiRow(ThemeData theme, double expenses, double income, double net,
+      int count) {
     final cs = theme.colorScheme;
     final green = Colors.green.shade600;
-    return _card(
-      theme,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.south_west_rounded, size: 15, color: cs.primary),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text('TOTAL INCOMING',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                        letterSpacing: 0.8,
-                        fontWeight: FontWeight.w800,
-                        color: cs.onSurfaceVariant)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(_money.format(_incoming),
-                style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w800, letterSpacing: -1)),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(Icons.trending_up_rounded, size: 16, color: green),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text('+2.4% from last month',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700, color: green)),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ----------------------------------------------------- category budgets
-  Widget _categoryGrid(ThemeData theme) {
     return LayoutBuilder(builder: (context, c) {
       const gap = 14.0;
-      final cols = (c.maxWidth / 260).floor().clamp(1, 3);
+      final cols = (c.maxWidth / 220).floor().clamp(1, 4);
       final w = (c.maxWidth - (cols - 1) * gap) / cols;
-      return Wrap(
-        spacing: gap,
-        runSpacing: gap,
-        children: [
-          for (final cat in _categories)
-            SizedBox(width: w, child: _categoryCard(theme, cat)),
-        ],
-      );
+      final tiles = [
+        _kpi(theme, w, 'EXPENSES', currency0.format(expenses),
+            Icons.south_west_rounded, cs.error),
+        _kpi(theme, w, 'INCOME', currency0.format(income),
+            Icons.north_east_rounded, green),
+        _kpi(theme, w, 'NET', currency0.format(net),
+            Icons.swap_vert_rounded, net >= 0 ? green : cs.error),
+        _kpi(theme, w, 'TRANSACTIONS',
+            NumberFormat.decimalPattern().format(count),
+            Icons.receipt_long_rounded, cs.primary),
+      ];
+      return Wrap(spacing: gap, runSpacing: gap, children: tiles);
     });
   }
 
-  Widget _categoryCard(ThemeData theme, _CatBudget cat) {
+  Widget _kpi(ThemeData theme, double w, String label, String value,
+      IconData icon, Color accent) {
     final cs = theme.colorScheme;
-    final pct = cat.budget <= 0 ? 0.0 : cat.spent / cat.budget;
-    final over = pct > 1.0;
-    final barColor = over ? cs.error : cs.primary;
-    return _card(
-      theme,
+    return Container(
+      width: w,
       padding: const EdgeInsets.all(16),
+      decoration: brutalBox(cs, shadowColor: accent),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(cat.icon, size: 18, color: cs.onSurface),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(cat.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w700)),
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: accent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: brutalLine(cs), width: 1.5),
+                ),
+                child: Icon(icon, size: 16, color: Colors.white),
               ),
-              Text('${(pct * 100).round()}%',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: over ? cs.error : cs.onSurfaceVariant)),
+              const Spacer(),
             ],
           ),
           const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Flexible(
-                child: Text(_money.format(cat.spent),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        color: over ? cs.error : cs.onSurface)),
-              ),
-              const SizedBox(width: 4),
-              Flexible(
-                child: Text('/ ${_money.format(cat.budget)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall
-                        ?.copyWith(color: cs.onSurfaceVariant)),
-              ),
-            ],
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value,
+                style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900, letterSpacing: -0.5)),
           ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: pct.clamp(0.0, 1.0),
-              minHeight: 8,
-              backgroundColor: cs.surfaceContainerHigh,
-              color: barColor,
-            ),
-          ),
-          if (over) ...[
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                  'Over budget by ${_money0.format(cat.spent - cat.budget)}',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w700, color: cs.error)),
-            ),
-          ],
+          const SizedBox(height: 2),
+          Text(label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                  letterSpacing: 0.8,
+                  fontWeight: FontWeight.w800,
+                  color: cs.onSurfaceVariant)),
         ],
       ),
     );
   }
 
-  // --------------------------------------------------------- savings goals
-  Widget _goalRow(ThemeData theme) {
-    return LayoutBuilder(builder: (context, c) {
-      const gap = 14.0;
-      final cols = (c.maxWidth / 220).floor().clamp(1, 3);
-      final w = (c.maxWidth - (cols - 1) * gap) / cols;
-      return Wrap(
-        spacing: gap,
-        runSpacing: gap,
-        children: [
-          for (final g in _goals)
-            SizedBox(width: w, child: _goalCard(theme, g)),
-        ],
-      );
-    });
-  }
-
-  Widget _goalCard(ThemeData theme, _Goal goal) {
+  // ------------------------------------------------------------- categories
+  Widget _categoryCard(BuildContext context, WidgetRef ref, ThemeData theme,
+      List<MapEntry<String, double>> entries, double maxCat, double total) {
     final cs = theme.colorScheme;
-    final pct = goal.target <= 0 ? 0.0 : (goal.saved / goal.target);
-    return _card(
-      theme,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+    if (entries.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: brutalBox(cs),
+        child: Text('No expense data.',
+            style: TextStyle(color: cs.onSurfaceVariant)),
+      );
+    }
+    final shown = entries.take(8).toList();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+      decoration: brutalBox(cs),
       child: Column(
         children: [
-          SizedBox(
-            width: 120,
-            height: 120,
-            child: Stack(
-              alignment: Alignment.center,
+          for (final e in shown)
+            _categoryRow(context, ref, theme, e, maxCat, total),
+        ],
+      ),
+    );
+  }
+
+  Widget _categoryRow(BuildContext context, WidgetRef ref, ThemeData theme,
+      MapEntry<String, double> e, double maxCat, double total) {
+    final cs = theme.colorScheme;
+    final accent = categoryAccent(context, ref, e.key);
+    final pct = maxCat <= 0 ? 0.0 : (e.value / maxCat);
+    final share = total <= 0 ? 0.0 : (e.value / total * 100);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: accent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: brutalLine(cs), width: 1.5),
+            ),
+            child: Center(
+                child: FaIcon(categoryIcon(e.key),
+                    size: 13, color: Colors.white)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox.expand(
-                  child: CircularProgressIndicator(
-                    value: 1,
-                    strokeWidth: 9,
-                    color: cs.surfaceContainerHigh,
-                  ),
-                ),
-                SizedBox.expand(
-                  child: CircularProgressIndicator(
-                    value: pct.clamp(0.0, 1.0),
-                    strokeWidth: 9,
-                    strokeCap: StrokeCap.round,
-                    color: cs.primary,
-                    backgroundColor: Colors.transparent,
-                  ),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
+                Row(
                   children: [
-                    Icon(goal.icon, size: 18, color: cs.primary),
-                    const SizedBox(height: 2),
-                    Text('${(pct * 100).round()}%',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800)),
+                    Expanded(
+                      child: Text(prettyCategory(e.key),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w800)),
+                    ),
+                    Text(currency0.format(e.value),
+                        style: theme.textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w900)),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 42,
+                      child: Text('${share.toStringAsFixed(0)}%',
+                          textAlign: TextAlign.right,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: cs.onSurfaceVariant)),
+                    ),
                   ],
                 ),
+                const SizedBox(height: 6),
+                _bar(cs, pct, accent),
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          Text(goal.name,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text(
-              '${_money0.format(goal.saved)} / ${_money0.format(goal.target)}',
-              style: theme.textTheme.labelMedium
-                  ?.copyWith(color: cs.onSurfaceVariant)),
+        ],
+      ),
+    );
+  }
+
+  // A chunky, bordered progress bar (neo-brutalist).
+  Widget _bar(ColorScheme cs, double pct, Color accent) {
+    return Container(
+      height: 14,
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: brutalLine(cs), width: 1.5),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4.5),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: FractionallySizedBox(
+            widthFactor: pct.clamp(0.0, 1.0),
+            child: Container(color: accent),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------ recent transactions
+  Widget _recentCard(BuildContext context, WidgetRef ref, ThemeData theme,
+      List<Expense> recent) {
+    final cs = theme.colorScheme;
+    return Container(
+      decoration: brutalBox(cs),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < recent.length; i++)
+            _txRow(theme, recent[i], last: i == recent.length - 1),
+          InkWell(
+            onTap: () => ref.read(navIndexProvider.notifier).select(1),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(
+                    top: BorderSide(color: brutalLine(cs), width: 1.5)),
+              ),
+              child: Text('View all transactions →',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800, color: cs.primary)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _txRow(ThemeData theme, Expense tx, {required bool last}) {
+    final cs = theme.colorScheme;
+    final isDebit = tx.debit > 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        border: last
+            ? null
+            : Border(
+                bottom: BorderSide(color: cs.outlineVariant, width: 1)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(_fmtDate(tx.date),
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: cs.onSurfaceVariant)),
+          ),
+          Expanded(
+            child: Text(tx.description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(width: 148, child: CategoryPill(category: tx.category)),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 116,
+            child: Text(currency2.format(tx.amount),
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: isDebit ? cs.error : Colors.green.shade700)),
+          ),
         ],
       ),
     );
@@ -403,161 +361,55 @@ class DashboardScreen extends ConsumerWidget {
   Widget _sectionTitle(ThemeData theme, String title) => Text(
         title,
         style: theme.textTheme.titleMedium
-            ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.2),
+            ?.copyWith(fontWeight: FontWeight.w900, letterSpacing: -0.2),
       );
 
-  Widget _card(ThemeData theme,
-      {required Widget child, EdgeInsets? padding}) {
+  Widget _message(BuildContext context, WidgetRef ref, ThemeData theme,
+      {required IconData icon,
+      required String title,
+      required String body,
+      String? actionLabel}) {
     final cs = theme.colorScheme;
-    return Container(
-      padding: padding ?? const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
-// ===================================================== recent transactions
-/// The five most recent transactions from the configured data source. Falls
-/// back to a gentle prompt when no database is connected.
-class _RecentTransactions extends ConsumerWidget {
-  const _RecentTransactions();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final async = ref.watch(dashboardDataProvider);
-
-    final List<Expense> recent;
-    if (async.hasValue) {
-      final all = List<Expense>.from(async.requireValue.transactions)
-        ..sort((a, b) => b.date.compareTo(a.date));
-      recent = all.take(5).toList();
-    } else {
-      recent = const [];
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: cs.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 12, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text('Recent Transactions',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Container(
+          margin: const EdgeInsets.all(28),
+          padding: const EdgeInsets.all(28),
+          decoration: brutalBox(cs),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: brutalLine(cs), width: 2),
                 ),
-                TextButton(
-                  onPressed: () =>
-                      ref.read(navIndexProvider.notifier).select(1),
-                  child: const Text('View all'),
-                ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: cs.outlineVariant),
-          if (recent.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(28),
-              child: Center(
-                child: Text(
-                  async.isLoading
-                      ? 'Loading transactions…'
-                      : 'Connect a database in Settings to see your '
-                          'recent activity.',
+                child: Icon(icon, size: 30, color: Colors.white),
+              ),
+              const SizedBox(height: 16),
+              Text(title,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w900)),
+              const SizedBox(height: 8),
+              Text(body,
+                  textAlign: TextAlign.center,
                   style: theme.textTheme.bodySmall
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                      ?.copyWith(color: cs.onSurfaceVariant)),
+              if (actionLabel != null) ...[
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: () =>
+                      ref.read(navIndexProvider.notifier).select(3),
+                  child: Text(actionLabel),
                 ),
-              ),
-            )
-          else
-            for (var i = 0; i < recent.length; i++)
-              _row(theme, recent[i], last: i == recent.length - 1),
-        ],
-      ),
-    );
-  }
-
-  Widget _row(ThemeData theme, Expense tx, {required bool last}) {
-    final cs = theme.colorScheme;
-    final isDebit = tx.debit > 0;
-    final amount = tx.amount;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: BoxDecoration(
-        border: last
-            ? null
-            : Border(
-                bottom: BorderSide(color: cs.outlineVariant, width: 0.5)),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 96,
-            child: Text(_fmtDate(tx.date),
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: cs.onSurfaceVariant)),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tx.description,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium
-                        ?.copyWith(fontWeight: FontWeight.w600)),
-                if (tx.source.isNotEmpty)
-                  Text(tx.source,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant)),
               ],
-            ),
+            ],
           ),
-          const SizedBox(width: 12),
-          SizedBox(width: 150, child: CategoryPill(category: tx.category)),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 120,
-            child: Text(
-              currency2.format(amount),
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color: isDebit ? cs.error : Colors.green.shade700,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -566,21 +418,4 @@ class _RecentTransactions extends ConsumerWidget {
     final d = DateTime.tryParse(iso);
     return d == null ? iso : DateFormat('d MMM yyyy').format(d);
   }
-}
-
-// ----------------------------------------------------------------- models
-class _CatBudget {
-  final String name;
-  final IconData icon;
-  final double spent;
-  final double budget;
-  const _CatBudget(this.name, this.icon, this.spent, this.budget);
-}
-
-class _Goal {
-  final String name;
-  final IconData icon;
-  final double saved;
-  final double target;
-  const _Goal(this.name, this.icon, this.saved, this.target);
 }

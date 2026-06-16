@@ -8,6 +8,7 @@ import '../providers/dashboard_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/font_provider.dart';
 import '../providers/prefs_provider.dart';
+import '../theme/brutalism.dart';
 import '../widgets/db_path_dialog.dart';
 
 /// Settings & customization, laid out as a responsive grid of cards
@@ -30,7 +31,7 @@ class SettingsScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               color: cs.surface,
               border: Border(
-                  bottom: BorderSide(color: cs.outlineVariant, width: 1)),
+                  bottom: BorderSide(color: brutalLine(cs), width: 2)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,18 +149,7 @@ class _Section extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: cs.outlineVariant),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
+      decoration: brutalBox(cs, radius: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -376,7 +366,7 @@ class _Swatch extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [appTheme.primary, appTheme.tertiary],
+                colors: [appTheme.primary, appTheme.secondary],
               ),
               boxShadow: [
                 BoxShadow(

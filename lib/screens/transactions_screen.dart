@@ -13,6 +13,7 @@ import '../providers/nav_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/prefs_provider.dart';
 import '../theme/app_themes.dart';
+import '../theme/brutalism.dart';
 import '../models/expense.dart';
 import '../utils/format.dart';
 import '../widgets/category_pill.dart';
@@ -167,7 +168,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
       decoration: BoxDecoration(
         color: cs.surface,
-        border: Border(bottom: BorderSide(color: cs.outlineVariant, width: 1)),
+        border: Border(bottom: BorderSide(color: brutalLine(cs), width: 2)),
       ),
       child: LayoutBuilder(builder: (context, c) {
         // On narrow windows the section switcher collapses to icon-only
@@ -475,20 +476,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         padding: const EdgeInsets.all(13),
         // Hovering lifts the tile: it rises a few pixels and its accent
         // shadow deepens, giving the header a tactile, layered feel.
-        transform: Matrix4.translationValues(0, hovered ? -3 : 0, 0),
-        decoration: BoxDecoration(
-          color: Color.alphaBlend(color.withValues(alpha: 0.07),
-              theme.colorScheme.surfaceContainerLowest),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-              color: color.withValues(alpha: hovered ? 0.50 : 0.26), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: hovered ? 0.26 : 0.13),
-              blurRadius: hovered ? 24 : 16,
-              offset: Offset(0, hovered ? 10 : 6),
-            ),
-          ],
+        transform: Matrix4.translationValues(0, hovered ? -2 : 0, 0),
+        decoration: brutalBox(
+          theme.colorScheme,
+          shadowColor: color,
+          dx: hovered ? 6 : 4,
+          dy: hovered ? 6 : 4,
         ),
         child: Row(
           children: [
@@ -599,19 +592,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           Expanded(
             child: Container(
               clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                    color: theme.colorScheme.outlineVariant, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.colorScheme.shadow.withValues(alpha: 0.06),
-                    blurRadius: 18,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
+              decoration: brutalBox(theme.colorScheme),
               child: Column(
                 children: [
                   Expanded(child: _buildTable(theme, pageItems, startIndex)),

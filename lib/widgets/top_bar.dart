@@ -1,104 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/nav_provider.dart';
+import '../theme/brutalism.dart';
 
-/// The persistent application header: a global transaction search on the left
-/// and quick-action icons (notifications, settings, profile) on the right.
-/// The search field is bound to [globalSearchProvider]; typing here jumps to
-/// the Transactions screen and filters its table.
-class TopBar extends ConsumerStatefulWidget {
+/// A slim application header with quick-action icons (notifications, settings,
+/// profile). Search lives on the Transactions screen itself, so it is not
+/// duplicated here.
+class TopBar extends ConsumerWidget {
   const TopBar({super.key});
 
   @override
-  ConsumerState<TopBar> createState() => _TopBarState();
-}
-
-class _TopBarState extends ConsumerState<TopBar> {
-  final _ctrl = TextEditingController();
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
-    // Reflect external changes (e.g. the Transactions clear button) back into
-    // the field without disturbing the caret while typing here.
-    ref.listen<String>(globalSearchProvider, (prev, next) {
-      if (_ctrl.text != next) {
-        _ctrl.text = next;
-        _ctrl.selection = TextSelection.collapsed(offset: next.length);
-      }
-    });
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
 
     return Container(
-      height: 60,
+      height: 56,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: cs.surface,
-        border: Border(bottom: BorderSide(color: cs.outlineVariant, width: 1)),
+        border: Border(bottom: BorderSide(color: brutalLine(cs), width: 2)),
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: SizedBox(
-                  height: 40,
-                  child: TextField(
-                    controller: _ctrl,
-                    decoration: InputDecoration(
-                      hintText: 'Search transactions…',
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onChanged: (v) {
-                      ref.read(globalSearchProvider.notifier).set(v);
-                      // Surface results where they live.
-                      if (v.isNotEmpty && ref.read(navIndexProvider) != 1) {
-                        ref.read(navIndexProvider.notifier).select(1);
-                      }
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ),
+          const Spacer(),
+          _action(cs, Icons.notifications_none_rounded, 'Notifications', () {}),
+          const SizedBox(width: 8),
+          _action(cs, Icons.settings_outlined, 'Settings',
+              () => ref.read(navIndexProvider.notifier).select(3)),
           const SizedBox(width: 12),
-          IconButton(
-            tooltip: 'Notifications',
-            onPressed: () {},
-            icon: Icon(Icons.notifications_none_rounded,
-                color: cs.onSurfaceVariant),
-          ),
-          IconButton(
-            tooltip: 'Settings',
-            onPressed: () => ref.read(navIndexProvider.notifier).select(3),
-            icon: Icon(Icons.settings_outlined, color: cs.onSurfaceVariant),
-          ),
-          const SizedBox(width: 6),
           Container(
             width: 34,
             height: 34,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [cs.primary, cs.tertiary],
-              ),
+              color: cs.primary,
+              border: Border.all(color: brutalLine(cs), width: 2),
             ),
             child: Icon(Icons.person_rounded, size: 18, color: cs.onPrimary),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _action(
+      ColorScheme cs, IconData icon, String tooltip, VoidCallback onTap) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: cs.surfaceContainerLowest,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(9),
+          side: BorderSide(color: brutalLine(cs), width: 1.5),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(9),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(7),
+            child: Icon(icon, size: 18, color: cs.onSurfaceVariant),
+          ),
+        ),
       ),
     );
   }

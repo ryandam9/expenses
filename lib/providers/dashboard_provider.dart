@@ -51,6 +51,16 @@ final dashboardDataProvider = FutureProvider<DashboardData>(
   );
 });
 
+/// Every transaction (all time, transfers excluded), newest first. Backs the
+/// Summary dashboard so its overview is independent of the Transactions
+/// screen's active filter.
+final allExpensesProvider = FutureProvider<List<Expense>>(
+    retry: (_, _) => null, (ref) async {
+  ref.watch(dataReloadProvider);
+  ref.watch(dbPathProvider);
+  return DatabaseService().getExpenses();
+});
+
 /// Live, unfiltered transaction count (excluding transfers); shown in
 /// Settings → About.
 final transactionCountProvider = FutureProvider<int>(

@@ -6,6 +6,7 @@ import 'transactions_screen.dart';
 import 'settings_screen.dart';
 import '../providers/nav_provider.dart';
 import '../providers/theme_provider.dart';
+import '../theme/brutalism.dart';
 import '../widgets/top_bar.dart';
 
 /// App frame: a branded sidebar (logo, navigation, theme toggle) next to the
@@ -66,7 +67,7 @@ class _Sidebar extends ConsumerWidget {
       width: width,
       decoration: BoxDecoration(
         color: cs.surfaceContainer,
-        border: Border(right: BorderSide(color: cs.outlineVariant, width: 1)),
+        border: Border(right: BorderSide(color: brutalLine(cs), width: 2)),
       ),
       // While the width animates between the two sizes, lay the content out at
       // its *target* width and clip to the animating width. Otherwise the rows
@@ -267,18 +268,19 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final fg = selected ? cs.onPrimary : cs.onSurfaceVariant;
     final navIcon = Icon(
       selected ? selectedIcon : icon,
       size: 20,
-      color: selected ? cs.primary : cs.onSurfaceVariant,
+      color: fg,
     );
     final item = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
@@ -286,10 +288,14 @@ class _NavItem extends StatelessWidget {
                 ? const EdgeInsets.symmetric(vertical: 11)
                 : const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             decoration: BoxDecoration(
-              color: selected
-                  ? cs.primary.withValues(alpha: 0.11)
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
+              color: selected ? cs.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected ? brutalLine(cs) : Colors.transparent,
+                width: 2,
+              ),
+              boxShadow:
+                  selected ? [brutalShadow(cs, dx: 3, dy: 3)] : null,
             ),
             child: collapsed
                 ? Center(child: navIcon)
@@ -305,20 +311,8 @@ class _NavItem extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight:
-                                selected ? FontWeight.w800 : FontWeight.w600,
-                            color: selected ? cs.primary : cs.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                      AnimatedOpacity(
-                        duration: const Duration(milliseconds: 180),
-                        opacity: selected ? 1 : 0,
-                        child: Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: cs.primary,
-                            shape: BoxShape.circle,
+                                selected ? FontWeight.w900 : FontWeight.w700,
+                            color: fg,
                           ),
                         ),
                       ),
