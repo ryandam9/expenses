@@ -103,14 +103,32 @@ class _Sidebar extends ConsumerWidget {
                     if (!collapsed) ...[
                       const SizedBox(width: 11),
                       Expanded(
-                        child: Text(
-                          'Expenses',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.3,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Expenses',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                                height: 1.05,
+                                color: cs.primary,
+                              ),
+                            ),
+                            Text(
+                              'Financial Control',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
