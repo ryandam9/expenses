@@ -5,8 +5,7 @@ import 'prefs_provider.dart';
 class FontFamilyNotifier extends Notifier<String> {
   @override
   String build() =>
-      ref.read(sharedPreferencesProvider).getString('fontFamily') ??
-      'Roboto Condensed';
+      ref.read(sharedPreferencesProvider).getString('fontFamily') ?? 'Inter';
 
   void select(String family) {
     state = family;
@@ -25,8 +24,12 @@ class FontSizeNotifier extends Notifier<double> {
   }
 }
 
-final fontFamilyProvider = NotifierProvider<FontFamilyNotifier, String>(FontFamilyNotifier.new);
-final fontSizeProvider = NotifierProvider<FontSizeNotifier, double>(FontSizeNotifier.new);
+final fontFamilyProvider = NotifierProvider<FontFamilyNotifier, String>(
+  FontFamilyNotifier.new,
+);
+final fontSizeProvider = NotifierProvider<FontSizeNotifier, double>(
+  FontSizeNotifier.new,
+);
 
 /// Every font family the bundled google_fonts package can load (the entire
 /// Google Fonts catalogue — Google Sans, Inter, Roboto, …) preceded by the

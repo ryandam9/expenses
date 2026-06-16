@@ -13,7 +13,9 @@ import '../providers/nav_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/prefs_provider.dart';
 import '../theme/app_themes.dart';
+import '../theme/app_ui.dart';
 import '../theme/brutalism.dart';
+import '../theme/typography.dart';
 import '../models/expense.dart';
 import '../utils/format.dart';
 import '../widgets/category_pill.dart';
@@ -25,8 +27,7 @@ class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
 
   @override
-  ConsumerState<TransactionsScreen> createState() =>
-      _TransactionsScreenState();
+  ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
 }
 
 class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
@@ -62,8 +63,11 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     _colWidths = [for (final c in _columns) c.$2];
     final saved = ref.read(sharedPreferencesProvider).getString('colWidths');
     if (saved != null) {
-      final parts =
-          saved.split(',').map(double.tryParse).whereType<double>().toList();
+      final parts = saved
+          .split(',')
+          .map(double.tryParse)
+          .whereType<double>()
+          .toList();
       if (parts.length == _columns.length) _colWidths = parts;
     }
   }
@@ -90,10 +94,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     if (_query.isEmpty) return all;
     final q = _query.toLowerCase();
     return all
-        .where((e) =>
-            e.description.toLowerCase().contains(q) ||
-            e.category.toLowerCase().contains(q) ||
-            e.source.toLowerCase().contains(q))
+        .where(
+          (e) =>
+              e.description.toLowerCase().contains(q) ||
+              e.category.toLowerCase().contains(q) ||
+              e.source.toLowerCase().contains(q),
+        )
         .toList();
   }
 
@@ -132,12 +138,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       }
       if (_searchCtrl.text != next) {
         _searchCtrl.text = next;
-        _searchCtrl.selection =
-            TextSelection.collapsed(offset: next.length);
+        _searchCtrl.selection = TextSelection.collapsed(offset: next.length);
       }
     });
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -158,109 +164,87 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   /// Page header: title plus the active period on the left, the section
   /// switcher and export menu on the right.
   Widget _buildHeader(ThemeData theme, AsyncValue<DashboardData> async) {
-    final cs = theme.colorScheme;
     final filter = ref.watch(filterProvider);
     final period = filter.hasPeriod
         ? '${_fmtDate(filter.startDate ?? '')}  –  ${_fmtDate(filter.endDate ?? '')}'
         : 'All time';
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
-      decoration: BoxDecoration(
-        color: cs.surface,
-        border: Border(bottom: BorderSide(color: brutalLine(cs), width: 2)),
-      ),
-      child: LayoutBuilder(builder: (context, c) {
+    return LayoutBuilder(
+      builder: (context, c) {
         // On narrow windows the section switcher collapses to icon-only
         // segments (with tooltips) so the header never overflows.
         final compact = c.maxWidth < 640;
-        return Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('Transactions',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800, letterSpacing: -0.4)),
-                  const SizedBox(height: 2),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.calendar_today_rounded,
-                          size: 11, color: cs.onSurfaceVariant),
-                      const SizedBox(width: 5),
-                      Flexible(
-                        child: Text(period,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelSmall
-                                ?.copyWith(color: cs.onSurfaceVariant)),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            SegmentedButton<String>(
-              segments: [
-                ButtonSegment(
+        return AppPageHeader(
+          icon: Icons.receipt_long_rounded,
+          title: 'Transactions',
+          subtitle: period,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SegmentedButton<String>(
+                segments: [
+                  ButtonSegment(
                     value: 'transactions',
                     label: compact ? null : const Text('Transactions'),
                     tooltip: compact ? 'Transactions' : null,
-                    icon: const Icon(Icons.table_rows, size: 16)),
-                ButtonSegment(
+                    icon: const Icon(Icons.table_rows, size: 16),
+                  ),
+                  ButtonSegment(
                     value: 'overview',
                     label: compact ? null : const Text('Overview'),
                     tooltip: compact ? 'Overview' : null,
-                    icon: const Icon(Icons.insights, size: 16)),
-              ],
-              selected: {_section},
-              showSelectedIcon: false,
-              onSelectionChanged: (s) => setState(() => _section = s.first),
-              style: ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                textStyle: WidgetStateProperty.all(
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-              ),
-            ),
-            const SizedBox(width: 10),
-            // MenuAnchor (with Material 3 open/close animations as of Flutter
-            // 3.44) so both exports are reachable from either section.
-            MenuAnchor(
-              menuChildren: [
-                MenuItemButton(
-                  leadingIcon: const Icon(Icons.table_rows, size: 18),
-                  onPressed: async.hasValue
-                      ? () => _exportCsv(async.requireValue.transactions,
-                          overview: false)
-                      : null,
-                  child: const Text('Export transactions (CSV)'),
+                    icon: const Icon(Icons.insights, size: 16),
+                  ),
+                ],
+                selected: {_section},
+                showSelectedIcon: false,
+                onSelectionChanged: (s) => setState(() => _section = s.first),
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  textStyle: WidgetStateProperty.all(
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
                 ),
-                MenuItemButton(
-                  leadingIcon: const Icon(Icons.donut_small_outlined, size: 18),
-                  onPressed: async.hasValue
-                      ? () => _exportCsv(async.requireValue.transactions,
-                          overview: true)
-                      : null,
-                  child: const Text('Export category summary (CSV)'),
-                ),
-              ],
-              builder: (context, controller, _) => IconButton.filledTonal(
-                icon: const Icon(Icons.download_rounded, size: 20),
-                tooltip: 'Export…',
-                onPressed: () =>
-                    controller.isOpen ? controller.close() : controller.open(),
               ),
-            ),
-            const SizedBox(width: 6),
-          ],
+              const SizedBox(width: 10),
+              MenuAnchor(
+                menuChildren: [
+                  MenuItemButton(
+                    leadingIcon: const Icon(Icons.table_rows, size: 18),
+                    onPressed: async.hasValue
+                        ? () => _exportCsv(
+                            async.requireValue.transactions,
+                            overview: false,
+                          )
+                        : null,
+                    child: const Text('Export transactions (CSV)'),
+                  ),
+                  MenuItemButton(
+                    leadingIcon: const Icon(
+                      Icons.donut_small_outlined,
+                      size: 18,
+                    ),
+                    onPressed: async.hasValue
+                        ? () => _exportCsv(
+                            async.requireValue.transactions,
+                            overview: true,
+                          )
+                        : null,
+                    child: const Text('Export category summary (CSV)'),
+                  ),
+                ],
+                builder: (context, controller, _) => IconButton.filledTonal(
+                  icon: const Icon(Icons.download_rounded, size: 20),
+                  tooltip: 'Export',
+                  onPressed: () => controller.isOpen
+                      ? controller.close()
+                      : controller.open(),
+                ),
+              ),
+            ],
+          ),
         );
-      }),
+      },
     );
   }
 
@@ -276,9 +260,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           children: [
             const CircularProgressIndicator(),
             const SizedBox(height: 16),
-            Text('Loading your transactions…',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            Text(
+              'Loading your transactions…',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       );
@@ -300,7 +287,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         if (_query.isNotEmpty)
           _buildSearchChip(theme, filtered.length, data.transactions.length),
         Divider(
-            height: 1, thickness: 1, color: theme.colorScheme.outlineVariant),
+          height: 1,
+          thickness: 1,
+          color: theme.colorScheme.outlineVariant,
+        ),
         Expanded(
           child: _section == 'overview'
               ? OverviewCharts(transactions: filtered)
@@ -315,8 +305,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       decoration: BoxDecoration(gradient: _ambientGlow(theme)),
       child: content,
     );
-    final pageCount =
-        filtered.isEmpty ? 1 : (filtered.length / _pageSize).ceil();
+    final pageCount = filtered.isEmpty
+        ? 1
+        : (filtered.length / _pageSize).ceil();
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyF, control: true):
@@ -365,7 +356,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       final location = await getSaveLocation(
         suggestedName: 'expenses_${base}_$ts.csv',
         acceptedTypeGroups: const [
-          XTypeGroup(label: 'CSV', extensions: ['csv'])
+          XTypeGroup(label: 'CSV', extensions: ['csv']),
         ],
       );
       if (location == null) return; // cancelled
@@ -378,21 +369,24 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           duration: const Duration(seconds: 6),
           action: SnackBarAction(
             label: 'Copy path',
-            onPressed: () =>
-                Clipboard.setData(ClipboardData(text: file.path)),
+            onPressed: () => Clipboard.setData(ClipboardData(text: file.path)),
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Export failed: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
     }
   }
 
   // ---------------------------------------------------------------- KPI header
   Widget _buildKpiHeader(
-      ThemeData theme, List<Expense> rows, DashboardData data) {
+    ThemeData theme,
+    List<Expense> rows,
+    DashboardData data,
+  ) {
     double totalDebits = 0, largest = 0;
     for (final e in rows) {
       if (e.debit > 0) {
@@ -407,18 +401,31 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         : null;
 
     final tiles = <Widget Function(double)>[
-      (w) => _kpi(theme, w, 'Expenses', currency0.format(totalDebits),
-          Icons.south_west, theme.colorScheme.error,
-          delta: debitDelta),
       (w) => _kpi(
-          theme,
-          w,
-          'Transactions',
-          NumberFormat.decimalPattern().format(rows.length),
-          Icons.receipt_long,
-          theme.colorScheme.primary),
-      (w) => _kpi(theme, w, 'Largest', currency0.format(largest),
-          Icons.trending_up, theme.colorScheme.error),
+        theme,
+        w,
+        'Expenses',
+        currency0.format(totalDebits),
+        Icons.south_west,
+        theme.colorScheme.error,
+        delta: debitDelta,
+      ),
+      (w) => _kpi(
+        theme,
+        w,
+        'Transactions',
+        NumberFormat.decimalPattern().format(rows.length),
+        Icons.receipt_long,
+        theme.colorScheme.primary,
+      ),
+      (w) => _kpi(
+        theme,
+        w,
+        'Largest',
+        currency0.format(largest),
+        Icons.trending_up,
+        theme.colorScheme.error,
+      ),
     ];
 
     return Padding(
@@ -440,8 +447,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   /// Compact "▲ 12% vs prev" readout. [upIsGood] flips the colour semantics:
   /// rising income is good (green), rising expenses are not (red).
-  Widget? _delta(ThemeData theme, double current, double? previous,
-      {required bool upIsGood}) {
+  Widget? _delta(
+    ThemeData theme,
+    double current,
+    double? previous, {
+    required bool upIsGood,
+  }) {
     if (previous == null || previous <= 0) return null;
     final pct = (current - previous) / previous * 100;
     final up = pct >= 0;
@@ -451,18 +462,32 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     return Row(
       mainAxisSize: .min,
       children: [
-        Icon(up ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-            size: 16, color: color),
-        Text('${pct.abs().toStringAsFixed(0)}% vs prev',
-            style: TextStyle(
-                fontSize: 10, fontWeight: FontWeight.w700, color: color)),
+        Icon(
+          up ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+          size: 16,
+          color: color,
+        ),
+        Text(
+          '${pct.abs().toStringAsFixed(0)}% vs prev',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _kpi(ThemeData theme, double width, String label, String value,
-      IconData icon, Color color,
-      {Widget? delta}) {
+  Widget _kpi(
+    ThemeData theme,
+    double width,
+    String label,
+    String value,
+    IconData icon,
+    Color color, {
+    Widget? delta,
+  }) {
     final hovered = _hoveredKpi == label;
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredKpi = label),
@@ -506,20 +531,24 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 crossAxisAlignment: .start,
                 mainAxisSize: .min,
                 children: [
-                  Text(label.toUpperCase(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                          fontSize: 9.5,
-                          letterSpacing: 0.8,
-                          fontWeight: FontWeight.w800,
-                          color: theme.colorScheme.onSurfaceVariant)),
+                  Text(
+                    label.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontSize: 9.5,
+                      letterSpacing: 0.8,
+                      fontWeight: FontWeight.w800,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                   const SizedBox(height: 1),
-                  Text(value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: dashboardNumberStyle(theme.textTheme.titleLarge),
+                  ),
                   ?delta,
                 ],
               ),
@@ -540,8 +569,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           InputChip(
             avatar: const Icon(Icons.search, size: 16),
             label: Text(
-                'Search “$_query” — totals cover $shown of $total transactions',
-                style: const TextStyle(fontSize: 12)),
+              'Search “$_query” — totals cover $shown of $total transactions',
+              style: const TextStyle(fontSize: 12),
+            ),
             onDeleted: _clearSearch,
             deleteButtonTooltipMessage: 'Clear search',
           ),
@@ -597,7 +627,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                 children: [
                   Expanded(child: _buildTable(theme, pageItems, startIndex)),
                   _buildPaginationBar(
-                      theme, total, startIndex, pageItems.length, pageCount),
+                    theme,
+                    total,
+                    startIndex,
+                    pageItems.length,
+                    pageCount,
+                  ),
                 ],
               ),
             ),
@@ -638,11 +673,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     double amt(Expense e) => e.debit > 0 ? -e.debit : e.credit;
     int cmp(Expense a, Expense b) {
       final r = switch (_sortKey) {
-        'description' =>
-          a.description.toLowerCase().compareTo(b.description.toLowerCase()),
+        'description' => a.description.toLowerCase().compareTo(
+          b.description.toLowerCase(),
+        ),
         'bank' => a.source.toLowerCase().compareTo(b.source.toLowerCase()),
-        'category' =>
-          a.category.toLowerCase().compareTo(b.category.toLowerCase()),
+        'category' => a.category.toLowerCase().compareTo(
+          b.category.toLowerCase(),
+        ),
         'amount' => amt(a).compareTo(amt(b)),
         _ => a.date.compareTo(b.date),
       };
@@ -669,40 +706,43 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     if (list.isEmpty) {
       return _emptyCenter(theme, Icons.search_off, 'No transactions match');
     }
-    return LayoutBuilder(builder: (context, constraints) {
-      final width =
-          _tableWidth < constraints.maxWidth ? constraints.maxWidth : _tableWidth;
-      return Scrollbar(
-        controller: _hScroll,
-        thumbVisibility: true,
-        child: SingleChildScrollView(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = _tableWidth < constraints.maxWidth
+            ? constraints.maxWidth
+            : _tableWidth;
+        return Scrollbar(
           controller: _hScroll,
-          scrollDirection: Axis.horizontal,
-          child: SizedBox(
-            width: width,
-            child: Column(
-              children: [
-                _tableHeader(theme),
-                Expanded(
-                  child: Scrollbar(
-                    controller: _vScroll,
-                    thumbVisibility: true,
-                    child: SelectionArea(
-                      child: ListView.builder(
-                        controller: _vScroll,
-                        itemCount: list.length,
-                        itemBuilder: (context, i) =>
-                            _tableRow(theme, list[i], startIndex + i, i),
+          thumbVisibility: true,
+          child: SingleChildScrollView(
+            controller: _hScroll,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: width,
+              child: Column(
+                children: [
+                  _tableHeader(theme),
+                  Expanded(
+                    child: Scrollbar(
+                      controller: _vScroll,
+                      thumbVisibility: true,
+                      child: SelectionArea(
+                        child: ListView.builder(
+                          controller: _vScroll,
+                          itemCount: list.length,
+                          itemBuilder: (context, i) =>
+                              _tableRow(theme, list[i], startIndex + i, i),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   }
 
   Widget _tableHeader(ThemeData theme) {
@@ -714,9 +754,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh.withValues(alpha: 0.55),
-        border: Border(
-          bottom: BorderSide(color: cs.outlineVariant, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: cs.outlineVariant, width: 1)),
       ),
       child: Row(
         children: [
@@ -747,8 +785,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     );
     final content = Row(
       mainAxisSize: MainAxisSize.max,
-      mainAxisAlignment:
-          isRight ? MainAxisAlignment.end : MainAxisAlignment.start,
+      mainAxisAlignment: isRight
+          ? MainAxisAlignment.end
+          : MainAxisAlignment.start,
       children: [
         Flexible(child: label),
         if (key != null) ...[
@@ -793,11 +832,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
               width: _cellGap,
               height: double.infinity,
               child: Center(
-                child: Container(
-                  width: 1.5,
-                  height: 16,
-                  color: gripColor,
-                ),
+                child: Container(width: 1.5, height: 16, color: gripColor),
               ),
             ),
           ),
@@ -813,7 +848,11 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   }
 
   Widget _tableRow(
-      ThemeData theme, Expense tx, int displayIndex, int rowInPage) {
+    ThemeData theme,
+    Expense tx,
+    int displayIndex,
+    int rowInPage,
+  ) {
     final amount = tx.debit > 0 ? -tx.debit : tx.credit;
     final isDebit = tx.debit > 0;
     final values = <String>[
@@ -831,8 +870,10 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         decoration: BoxDecoration(
           color: rowInPage.isOdd ? theme.colorScheme.surfaceContainerLow : null,
           border: Border(
-            bottom:
-                BorderSide(color: theme.colorScheme.outlineVariant, width: 0.5),
+            bottom: BorderSide(
+              color: theme.colorScheme.outlineVariant,
+              width: 0.5,
+            ),
           ),
         ),
         child: Row(
@@ -857,17 +898,19 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                             ? TextOverflow.visible
                             : TextOverflow.ellipsis,
                         maxLines: isDescription ? null : 1,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          height: isDescription ? 1.35 : null,
-                          fontWeight:
-                              isAmount ? FontWeight.w800 : FontWeight.w500,
-                          color: isAmount
-                              ? (isDebit
-                                  ? theme.colorScheme.error
-                                  : Colors.green.shade700)
-                              : theme.colorScheme.onSurface,
-                        ),
+                        style: isAmount
+                            ? tableNumberStyle(
+                                theme,
+                                color: isDebit
+                                    ? theme.colorScheme.error
+                                    : Colors.green.shade700,
+                              )
+                            : TextStyle(
+                                fontSize: 12.5,
+                                height: isDescription ? 1.35 : null,
+                                fontWeight: FontWeight.w500,
+                                color: theme.colorScheme.onSurface,
+                              ),
                       ),
               ),
             );
@@ -883,13 +926,17 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: Icon(isDebit ? Icons.south_west : Icons.north_east,
-            color: isDebit ? theme.colorScheme.error : Colors.green.shade600),
-        title: Text(currency2.format(amount),
-            style: TextStyle(
-                fontWeight: FontWeight.w800,
-                color:
-                    isDebit ? theme.colorScheme.error : Colors.green.shade700)),
+        icon: Icon(
+          isDebit ? Icons.south_west : Icons.north_east,
+          color: isDebit ? theme.colorScheme.error : Colors.green.shade600,
+        ),
+        title: Text(
+          currency2.format(amount),
+          style: dashboardNumberStyle(
+            theme.textTheme.headlineSmall,
+            color: isDebit ? theme.colorScheme.error : Colors.green.shade700,
+          ),
+        ),
         content: SelectionArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -897,8 +944,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             children: [
               _detailRow(theme, 'Description', tx.description),
               _detailRow(theme, 'Date', _fmtDate(tx.date)),
-              _detailRow(theme, 'Category',
-                  prettyCategory(tx.category)),
+              _detailRow(theme, 'Category', prettyCategory(tx.category)),
               _detailRow(theme, 'Bank', tx.source),
               if (tx.debit > 0)
                 _detailRow(theme, 'Debit', currency2.format(tx.debit)),
@@ -910,15 +956,21 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Clipboard.setData(ClipboardData(
-                  text: '${tx.date} | ${tx.description} | '
-                      '${tx.category} | ${tx.source} | ${currency2.format(amount)}'));
+              Clipboard.setData(
+                ClipboardData(
+                  text:
+                      '${tx.date} | ${tx.description} | '
+                      '${tx.category} | ${tx.source} | ${currency2.format(amount)}',
+                ),
+              );
               Navigator.pop(ctx);
             },
             child: const Text('Copy'),
           ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
@@ -932,16 +984,22 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         children: [
           SizedBox(
             width: 96,
-            child: Text(label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600)),
+            child: Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(value,
-                style: theme.textTheme.bodyMedium
-                    ?.copyWith(fontWeight: FontWeight.w500)),
+            child: Text(
+              value,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
@@ -949,7 +1007,12 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   }
 
   Widget _buildPaginationBar(
-      ThemeData theme, int total, int startIndex, int shown, int pageCount) {
+    ThemeData theme,
+    int total,
+    int startIndex,
+    int shown,
+    int pageCount,
+  ) {
     final from = total == 0 ? 0 : startIndex + 1;
     final to = startIndex + shown;
     return Container(
@@ -970,11 +1033,18 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             underline: const SizedBox.shrink(),
             borderRadius: BorderRadius.circular(8),
             items: _pageSizeOptions
-                .map((n) => DropdownMenuItem(
+                .map(
+                  (n) => DropdownMenuItem(
                     value: n,
-                    child: Text('$n',
-                        style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w700))))
+                    child: Text(
+                      '$n',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                )
                 .toList(),
             onChanged: (v) => v == null
                 ? null
@@ -984,29 +1054,40 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   }),
           ),
           const Spacer(),
-          Text('$from–$to of $total',
-              style: theme.textTheme.labelMedium
-                  ?.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            '$from–$to of $total',
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(width: 12),
           IconButton.outlined(
             onPressed: _page > 0 ? () => setState(() => _page--) : null,
             icon: const Icon(Icons.chevron_left, size: 20),
             tooltip: 'Previous (PgUp)',
             style: IconButton.styleFrom(
-                minimumSize: const Size(36, 36), padding: EdgeInsets.zero),
+              minimumSize: const Size(36, 36),
+              padding: EdgeInsets.zero,
+            ),
           ),
           const SizedBox(width: 6),
-          Text('${_page + 1} / $pageCount',
-              style: theme.textTheme.labelMedium
-                  ?.copyWith(fontWeight: FontWeight.w800)),
+          Text(
+            '${_page + 1} / $pageCount',
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
           const SizedBox(width: 6),
           IconButton.outlined(
-            onPressed:
-                _page < pageCount - 1 ? () => setState(() => _page++) : null,
+            onPressed: _page < pageCount - 1
+                ? () => setState(() => _page++)
+                : null,
             icon: const Icon(Icons.chevron_right, size: 20),
             tooltip: 'Next (PgDn)',
             style: IconButton.styleFrom(
-                minimumSize: const Size(36, 36), padding: EdgeInsets.zero),
+              minimumSize: const Size(36, 36),
+              padding: EdgeInsets.zero,
+            ),
           ),
         ],
       ),
@@ -1050,20 +1131,28 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                   ),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.folder_open_rounded,
-                    size: 44, color: theme.colorScheme.primary),
+                child: Icon(
+                  Icons.folder_open_rounded,
+                  size: 44,
+                  color: theme.colorScheme.primary,
+                ),
               ),
               const SizedBox(height: 18),
-              Text('Choose your expenses database',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                'Choose your expenses database',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 8),
               Text(
-                  'Point the app at the SQLite file that contains your '
-                  'expenses table. You can change it later in Settings.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                'Point the app at the SQLite file that contains your '
+                'expenses table. You can change it later in Settings.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: () => showDbPathDialog(context, ref),
@@ -1086,22 +1175,32 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.sentiment_dissatisfied_rounded,
-                  size: 56, color: theme.colorScheme.error),
+              Icon(
+                Icons.sentiment_dissatisfied_rounded,
+                size: 56,
+                color: theme.colorScheme.error,
+              ),
               const SizedBox(height: 16),
-              Text("Couldn't load your data",
-                  style: theme.textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Text(error,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              Text(
+                "Couldn't load your data",
+                style: theme.textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               Text(
-                  'Current source: ${DatabaseService().currentPath ?? 'not configured'}',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                error,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Current source: ${DatabaseService().currentPath ?? 'not configured'}',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
               const SizedBox(height: 24),
               Wrap(
                 spacing: 12,

@@ -35,8 +35,10 @@ class AppTheme {
   /// [variant] controls how strongly the seed colours are expressed in the
   /// derived scheme (tonalSpot = calm default, vibrant/expressive = more
   /// chroma in containers and surfaces).
-  ThemeData themeData(Brightness brightness,
-      {DynamicSchemeVariant variant = DynamicSchemeVariant.tonalSpot}) {
+  ThemeData themeData(
+    Brightness brightness, {
+    DynamicSchemeVariant variant = DynamicSchemeVariant.tonalSpot,
+  }) {
     final scheme = ColorScheme.fromSeed(
       seedColor: primary,
       primary: primary,
@@ -49,21 +51,19 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      // A softly tinted canvas one step above the base surface, so cards and
-      // panels (surfaceContainerLowest) visibly lift off the background.
-      scaffoldBackgroundColor: scheme.surfaceContainerLow,
+      scaffoldBackgroundColor: scheme.surface,
       appBarTheme: AppBarTheme(
         elevation: 0,
-        scrolledUnderElevation: 2,
+        scrolledUnderElevation: 0,
         centerTitle: false,
-        backgroundColor: scheme.surface,
+        backgroundColor: scheme.surfaceContainerLowest,
         foregroundColor: scheme.onSurface,
         surfaceTintColor: Colors.transparent,
         titleTextStyle: TextStyle(
           fontWeight: FontWeight.w700,
           fontSize: 19,
           color: scheme.onSurface,
-          letterSpacing: -0.2,
+          letterSpacing: 0,
         ),
       ),
       cardTheme: CardThemeData(
@@ -71,27 +71,33 @@ class AppTheme {
         color: scheme.surfaceContainerLowest,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: brutalLine(scheme), width: 2),
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: brutalLine(scheme), width: 1),
         ),
       ),
-      dividerTheme: DividerThemeData(color: brutalLine(scheme), thickness: 1.5),
+      dividerTheme: DividerThemeData(
+        color: scheme.outlineVariant,
+        thickness: 1,
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surface,
+        fillColor: scheme.surfaceContainerLowest,
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: brutalLine(scheme), width: 2),
+          borderSide: BorderSide(color: brutalLine(scheme), width: 1),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: brutalLine(scheme), width: 2),
+          borderSide: BorderSide(color: brutalLine(scheme), width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: scheme.primary, width: 2.5),
+          borderSide: BorderSide(color: scheme.primary, width: 1.5),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -99,23 +105,26 @@ class AppTheme {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
-            side: BorderSide(color: brutalLine(scheme), width: 2),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          side: BorderSide(color: brutalLine(scheme), width: 2),
-          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          side: BorderSide(color: brutalLine(scheme), width: 1),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
@@ -124,13 +133,18 @@ class AppTheme {
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
           side: WidgetStatePropertyAll(
-            BorderSide(color: brutalLine(scheme), width: 2),
+            BorderSide(color: brutalLine(scheme), width: 1),
+          ),
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
           ),
         ),
       ),
       chipTheme: ChipThemeData(
-        side: BorderSide(color: brutalLine(scheme), width: 1.5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        backgroundColor: scheme.surfaceContainerLowest,
+        selectedColor: scheme.primaryContainer,
+        side: BorderSide(color: brutalLine(scheme), width: 1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
@@ -139,22 +153,27 @@ class AppTheme {
       searchBarTheme: SearchBarThemeData(
         elevation: WidgetStateProperty.all(0),
         shape: WidgetStateProperty.all(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: brutalLine(scheme), width: 1),
+          ),
         ),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: scheme.surfaceContainerLowest,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       menuTheme: MenuThemeData(
         style: MenuStyle(
-          backgroundColor: WidgetStatePropertyAll(scheme.surfaceContainerLowest),
+          backgroundColor: WidgetStatePropertyAll(
+            scheme.surfaceContainerLowest,
+          ),
           surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
-          elevation: const WidgetStatePropertyAll(6),
+          elevation: const WidgetStatePropertyAll(8),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(10),
               side: BorderSide(color: scheme.outlineVariant),
             ),
           ),
@@ -164,7 +183,7 @@ class AppTheme {
         color: scheme.surfaceContainerLowest,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(10),
           side: BorderSide(color: scheme.outlineVariant),
         ),
       ),
@@ -188,7 +207,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
       listTileTheme: ListTileThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }

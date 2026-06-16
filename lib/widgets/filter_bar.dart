@@ -34,8 +34,18 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
   int _selMonth = 0; // 0 = whole year
 
   static const _monthNames = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   @override
@@ -70,8 +80,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
         return;
       }
       final first = years.isNotEmpty ? years.first : null;
-      final months =
-          first == null ? <int>[] : await _monthsForYear(first);
+      final months = first == null ? <int>[] : await _monthsForYear(first);
       if (!mounted) return;
       setState(() {
         _error = null;
@@ -86,9 +95,11 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
     } catch (e) {
       debugPrint('FilterPanel: failed to load filter options: $e');
       if (!mounted) return;
-      setState(() => _error = e is DatabaseNotConfiguredException
-          ? 'No data source configured yet.'
-          : 'Could not read the database.');
+      setState(
+        () => _error = e is DatabaseNotConfiguredException
+            ? 'No data source configured yet.'
+            : 'Could not read the database.',
+      );
     }
   }
 
@@ -140,9 +151,11 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
     } catch (e) {
       debugPrint('FilterPanel: failed to load categories: $e');
       if (!mounted) return;
-      setState(() => _error = e is DatabaseNotConfiguredException
-          ? 'No data source configured yet.'
-          : 'Could not read the database.');
+      setState(
+        () => _error = e is DatabaseNotConfiguredException
+            ? 'No data source configured yet.'
+            : 'Could not read the database.',
+      );
     }
   }
 
@@ -158,7 +171,9 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
     } else {
       final mm = _selMonth.toString().padLeft(2, '0');
       notifier.setRange(
-          '$year-$mm-01', '$year-$mm-${_lastDay(int.parse(year), _selMonth)}');
+        '$year-$mm-01',
+        '$year-$mm-${_lastDay(int.parse(year), _selMonth)}',
+      );
     }
   }
 
@@ -210,14 +225,14 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
 
   /// Small-caps sidebar section label ("PERIOD", "CATEGORIES").
   Widget _sectionLabel(ThemeData theme, String text) => Text(
-        text.toUpperCase(),
-        style: theme.textTheme.labelSmall?.copyWith(
-          fontSize: 10,
-          letterSpacing: 1.2,
-          fontWeight: FontWeight.w800,
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
-        ),
-      );
+    text.toUpperCase(),
+    style: theme.textTheme.labelSmall?.copyWith(
+      fontSize: 10,
+      letterSpacing: 0,
+      fontWeight: FontWeight.w800,
+      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
+    ),
+  );
 
   /// Stable per-category accent drawn from the theme's chart palette, using
   /// the same name hash as the table's category pills so a category keeps one
@@ -267,9 +282,12 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                   child: Icon(Icons.tune, size: 15, color: cs.primary),
                 ),
                 const SizedBox(width: 9),
-                Text('Filters',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800)),
+                Text(
+                  'Filters',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
                 const Spacer(),
                 if (filter.hasAnyFilter)
                   TextButton.icon(
@@ -305,8 +323,10 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                     Icon(Icons.info_outline, size: 16, color: cs.error),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(_error!,
-                          style: TextStyle(fontSize: 11.5, color: cs.error)),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(fontSize: 11.5, color: cs.error),
+                      ),
                     ),
                   ],
                 ),
@@ -321,13 +341,15 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
             child: SegmentedButton<String>(
               segments: const [
                 ButtonSegment(
-                    value: 'monthly',
-                    label: Text('Monthly'),
-                    icon: Icon(Icons.calendar_view_month, size: 16)),
+                  value: 'monthly',
+                  label: Text('Monthly'),
+                  icon: Icon(Icons.calendar_view_month, size: 16),
+                ),
                 ButtonSegment(
-                    value: 'custom',
-                    label: Text('Custom'),
-                    icon: Icon(Icons.date_range, size: 16)),
+                  value: 'custom',
+                  label: Text('Custom'),
+                  icon: Icon(Icons.date_range, size: 16),
+                ),
               ],
               selected: {_mode},
               showSelectedIcon: false,
@@ -335,7 +357,8 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
               style: ButtonStyle(
                 visualDensity: VisualDensity.compact,
                 textStyle: WidgetStateProperty.all(
-                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
               ),
             ),
           ),
@@ -357,7 +380,9 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                   Text(
                     filter.allCategories ? 'All' : 'None',
                     style: theme.textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.w800, color: cs.primary),
+                      fontWeight: FontWeight.w800,
+                      color: cs.primary,
+                    ),
                   )
                 else
                   // Standalone count badge; maxCount (Flutter 3.38) caps the
@@ -390,8 +415,9 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
           expandedInsets: EdgeInsets.zero,
           label: const Text('Year'),
           leadingIcon: const Icon(Icons.event, size: 18),
-          dropdownMenuEntries:
-              _years.map((y) => DropdownMenuEntry(value: y, label: y)).toList(),
+          dropdownMenuEntries: _years
+              .map((y) => DropdownMenuEntry(value: y, label: y))
+              .toList(),
           onSelected: (v) {
             if (v != null) _selectYear(v);
           },
@@ -440,18 +466,22 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
         ),
         child: Row(
           children: [
-            Icon(Icons.date_range,
-                size: 18,
-                color: hasRange ? cs.onPrimaryContainer : cs.onSurface),
+            Icon(
+              Icons.date_range,
+              size: 18,
+              color: hasRange ? cs.onPrimaryContainer : cs.onSurface,
+            ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(label,
-                  style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color:
-                          hasRange ? cs.onPrimaryContainer : cs.onSurface),
-                  overflow: TextOverflow.ellipsis),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: hasRange ? cs.onPrimaryContainer : cs.onSurface,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -465,7 +495,9 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
     final allSelected = filter.allCategories;
     final noneSelected = !filter.allCategories && filter.categories.isEmpty;
     // null => indeterminate (a partial selection).
-    final bool? masterValue = allSelected ? true : (noneSelected ? false : null);
+    final bool? masterValue = allSelected
+        ? true
+        : (noneSelected ? false : null);
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 16),
@@ -488,18 +520,22 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
         if (_categories.isEmpty)
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text('No categories in this period',
-                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+            child: Text(
+              'No categories in this period',
+              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+            ),
           )
         else
-          ..._categories.map((c) => _categoryTile(
-                theme,
-                label: prettyCategory(c),
-                icon: categoryIcon(c),
-                dot: _categoryColor(c),
-                value: filter.allCategories || filter.categories.contains(c),
-                onChanged: () => notifier.toggleCategory(c, _categories),
-              )),
+          ..._categories.map(
+            (c) => _categoryTile(
+              theme,
+              label: prettyCategory(c),
+              icon: categoryIcon(c),
+              dot: _categoryColor(c),
+              value: filter.allCategories || filter.categories.contains(c),
+              onChanged: () => notifier.toggleCategory(c, _categories),
+            ),
+          ),
       ],
     );
   }
@@ -554,8 +590,8 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                   child: indeterminate
                       ? Icon(Icons.remove, size: 14, color: cs.onPrimary)
                       : (selected
-                          ? Icon(Icons.check, size: 14, color: cs.onPrimary)
-                          : null),
+                            ? Icon(Icons.check, size: 14, color: cs.onPrimary)
+                            : null),
                 ),
                 const SizedBox(width: 12),
                 // Category icon in the category's stable accent colour.
@@ -571,8 +607,9 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                     label,
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight:
-                          (selected || bold) ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: (selected || bold)
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                       color: selected ? cs.primary : cs.onSurface,
                     ),
                     overflow: TextOverflow.ellipsis,

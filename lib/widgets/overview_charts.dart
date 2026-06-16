@@ -8,6 +8,7 @@ import '../providers/theme_provider.dart';
 import '../services/query_builder.dart';
 import '../theme/app_themes.dart';
 import '../theme/brutalism.dart';
+import '../theme/typography.dart';
 import '../utils/category_icons.dart';
 import '../utils/format.dart';
 
@@ -103,9 +104,13 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
           child: Icon(icon, size: 16, color: cs.primary),
         ),
         const SizedBox(width: 10),
-        Text(title,
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+        Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+        ),
       ],
     );
   }
@@ -128,7 +133,10 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
         children: [
           Icon(icon, color: theme.colorScheme.outline),
           const SizedBox(width: 12),
-          Text(msg, style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            msg,
+            style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+          ),
         ],
       ),
     );
@@ -148,15 +156,16 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label.toUpperCase(),
-              style: theme.textTheme.labelSmall?.copyWith(
-                  fontSize: 9,
-                  letterSpacing: 0.6,
-                  fontWeight: FontWeight.w700,
-                  color: cs.onSurfaceVariant)),
-          Text(value,
-              style: theme.textTheme.labelLarge
-                  ?.copyWith(fontWeight: FontWeight.w800)),
+          Text(
+            label.toUpperCase(),
+            style: theme.textTheme.labelSmall?.copyWith(
+              fontSize: 9,
+              letterSpacing: 0.6,
+              fontWeight: FontWeight.w700,
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          Text(value, style: dashboardNumberStyle(theme.textTheme.labelLarge)),
         ],
       ),
     );
@@ -195,14 +204,18 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     final cs = theme.colorScheme;
     final (series, monthly) = _trendSeries();
     if (series.isEmpty) {
-      return _emptyCard(theme, Icons.show_chart, 'No expense data for this filter');
+      return _emptyCard(
+        theme,
+        Icons.show_chart,
+        'No expense data for this filter',
+      );
     }
     final maxY = series.map((e) => e.value).reduce((a, b) => a > b ? a : b);
     final totalSpend = series.fold<double>(0, (s, e) => s + e.value);
     final avgSpend = totalSpend / series.length;
     final spots = [
       for (var i = 0; i < series.length; i++)
-        FlSpot(i.toDouble(), series[i].value)
+        FlSpot(i.toDouble(), series[i].value),
     ];
     final lineColor = cs.primary;
     final labelStep = (series.length / 6).ceil().clamp(1, series.length);
@@ -217,16 +230,20 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(compactMoney(totalSpend),
-                  style: theme.textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.w800)),
+              Text(
+                compactMoney(totalSpend),
+                style: dashboardNumberStyle(theme.textTheme.titleLarge),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 3),
-                  child: Text('total spend · by $periodWord',
-                      style: theme.textTheme.labelSmall
-                          ?.copyWith(color: cs.onSurfaceVariant)),
+                  child: Text(
+                    'total spend · by $periodWord',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
                 ),
               ),
               _miniStat(theme, 'avg / $periodWord', compactMoney(avgSpend)),
@@ -236,7 +253,8 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
           ),
           const SizedBox(height: 18),
           Semantics(
-            label: 'Line chart of spending over time, total '
+            label:
+                'Line chart of spending over time, total '
                 '${compactMoney(totalSpend)}',
             child: SizedBox(
               height: 260,
@@ -253,14 +271,17 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                         return LineTooltipItem(
                           '${_trendLabel(e.key, monthly, full: true)}\n',
                           const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 11),
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
                           children: [
                             TextSpan(
                               text: compactMoney(e.value),
                               style: const TextStyle(
-                                  color: Colors.white, fontSize: 11),
+                                color: Colors.white,
+                                fontSize: 11,
+                              ),
                             ),
                           ],
                         );
@@ -309,8 +330,10 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                         reservedSize: 46,
                         getTitlesWidget: (v, _) => v == 0
                             ? const SizedBox()
-                            : Text(compactMoney(v),
-                                style: const TextStyle(fontSize: 9)),
+                            : Text(
+                                compactMoney(v),
+                                style: const TextStyle(fontSize: 9),
+                              ),
                       ),
                     ),
                     bottomTitles: AxisTitles(
@@ -326,16 +349,20 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                           if (i % labelStep != 0) return const SizedBox();
                           return Padding(
                             padding: const EdgeInsets.only(top: 8),
-                            child: Text(_trendLabel(series[i].key, monthly),
-                                style: const TextStyle(fontSize: 9)),
+                            child: Text(
+                              _trendLabel(series[i].key, monthly),
+                              style: const TextStyle(fontSize: 9),
+                            ),
                           );
                         },
                       ),
                     ),
                     topTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                     rightTitles: const AxisTitles(
-                        sideTitles: SideTitles(showTitles: false)),
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                   ),
                   borderData: FlBorderData(show: false),
                   gridData: FlGridData(
@@ -365,7 +392,11 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     final cs = theme.colorScheme;
     final byCategory = debitTotalsBy(widget.transactions, (e) => e.category);
     if (byCategory.isEmpty) {
-      return _emptyCard(theme, Icons.bar_chart, 'No expense data for this filter');
+      return _emptyCard(
+        theme,
+        Icons.bar_chart,
+        'No expense data for this filter',
+      );
     }
     final entries = byCategory.entries.toList();
     final maxVal = entries.first.value;
@@ -386,8 +417,9 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
           height: 380,
           child: LayoutBuilder(
             builder: (context, c) {
-              final width =
-                  minChartWidth < c.maxWidth ? c.maxWidth : minChartWidth;
+              final width = minChartWidth < c.maxWidth
+                  ? c.maxWidth
+                  : minChartWidth;
               return Scrollbar(
                 controller: _barScroll,
                 thumbVisibility: minChartWidth > c.maxWidth,
@@ -413,42 +445,45 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                             tooltipMargin: 6,
                             getTooltipItem: (group, _, rod, _) =>
                                 BarTooltipItem(
-                              compactMoney(rod.toY),
-                              TextStyle(
-                                  color: cs.onSurface,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 11),
-                            ),
+                                  compactMoney(rod.toY),
+                                  TextStyle(
+                                    color: cs.onSurface,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 11,
+                                  ),
+                                ),
                           ),
                         ),
                         barGroups: [
                           for (var i = 0; i < entries.length; i++)
                             BarChartGroupData(
-                                x: i,
-                                showingTooltipIndicators: const [0],
-                                barRods: [
-                                  BarChartRodData(
-                                    toY: entries[i].value,
-                                    width: 46,
-                                    borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(10)),
-                                    gradient: LinearGradient(
-                                      begin: Alignment.bottomCenter,
-                                      end: Alignment.topCenter,
-                                      colors: [
-                                        colors[i].withValues(alpha: 0.72),
-                                        colors[i],
-                                      ],
-                                    ),
-                                    backDrawRodData:
-                                        BackgroundBarChartRodData(
-                                      show: true,
-                                      toY: maxY,
-                                      color: cs.surfaceContainerHigh
-                                          .withValues(alpha: 0.45),
+                              x: i,
+                              showingTooltipIndicators: const [0],
+                              barRods: [
+                                BarChartRodData(
+                                  toY: entries[i].value,
+                                  width: 46,
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(10),
+                                  ),
+                                  gradient: LinearGradient(
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
+                                    colors: [
+                                      colors[i].withValues(alpha: 0.72),
+                                      colors[i],
+                                    ],
+                                  ),
+                                  backDrawRodData: BackgroundBarChartRodData(
+                                    show: true,
+                                    toY: maxY,
+                                    color: cs.surfaceContainerHigh.withValues(
+                                      alpha: 0.45,
                                     ),
                                   ),
-                                ]),
+                                ),
+                              ],
+                            ),
                         ],
                         titlesData: FlTitlesData(
                           leftTitles: AxisTitles(
@@ -457,8 +492,10 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                               reservedSize: 46,
                               getTitlesWidget: (v, _) => v == 0
                                   ? const SizedBox()
-                                  : Text(compactMoney(v),
-                                      style: const TextStyle(fontSize: 9)),
+                                  : Text(
+                                      compactMoney(v),
+                                      style: const TextStyle(fontSize: 9),
+                                    ),
                             ),
                           ),
                           bottomTitles: AxisTitles(
@@ -481,10 +518,11 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                                       prettyCategory(entries[i].key),
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                          fontSize: 10.5,
-                                          height: 1.2,
-                                          fontWeight: FontWeight.w600,
-                                          color: cs.onSurfaceVariant),
+                                        fontSize: 10.5,
+                                        height: 1.2,
+                                        fontWeight: FontWeight.w600,
+                                        color: cs.onSurfaceVariant,
+                                      ),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -494,9 +532,11 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                             ),
                           ),
                           topTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
                           rightTitles: const AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
                         ),
                         borderData: FlBorderData(show: false),
                         gridData: FlGridData(
@@ -504,7 +544,9 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                           drawVerticalLine: false,
                           horizontalInterval: maxVal <= 0 ? 1 : maxVal / 4,
                           getDrawingHorizontalLine: (_) => FlLine(
-                              color: cs.outlineVariant, strokeWidth: 0.5),
+                            color: cs.outlineVariant,
+                            strokeWidth: 0.5,
+                          ),
                         ),
                       ),
                     ),
@@ -523,7 +565,10 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     final byCategory = debitTotalsBy(widget.transactions, (e) => e.category);
     if (byCategory.isEmpty) {
       return _emptyCard(
-          theme, Icons.donut_large, 'No expense data for this filter');
+        theme,
+        Icons.donut_large,
+        'No expense data for this filter',
+      );
     }
     final entries = byCategory.entries.toList();
     final total = entries.fold<double>(0, (s, e) => s + e.value);
@@ -567,16 +612,13 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                       // percentage; thin slivers stay clean and rely on the
                       // legend instead.
                       showTitle: total > 0 && entries[i].value / total >= 0.05,
-                      title:
-                          '${(entries[i].value / total * 100).round()}%',
+                      title: '${(entries[i].value / total * 100).round()}%',
                       titlePositionPercentageOffset: 0.62,
                       titleStyle: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
-                        shadows: [
-                          Shadow(blurRadius: 2, color: Colors.black38),
-                        ],
+                        shadows: [Shadow(blurRadius: 2, color: Colors.black38)],
                       ),
                     ),
                 ],
@@ -591,17 +633,17 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
                   _touchedPie >= 0 && _touchedPie < entries.length
                       ? compactMoney(entries[_touchedPie].value)
                       : compactMoney(total),
-                  style: theme.textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w800),
+                  style: dashboardNumberStyle(theme.textTheme.headlineSmall),
                 ),
                 Text(
                   _touchedPie >= 0 && _touchedPie < entries.length
                       ? '${prettyCategory(entries[_touchedPie].key)} '
-                          '· ${(entries[_touchedPie].value / total * 100).toStringAsFixed(1)}%'
+                            '· ${(entries[_touchedPie].value / total * 100).toStringAsFixed(1)}%'
                       : 'total',
                   textAlign: TextAlign.center,
-                  style: theme.textTheme.labelMedium
-                      ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -643,8 +685,13 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
     );
   }
 
-  Widget _legendRow(ThemeData theme, MapEntry<String, double> e, Color color,
-      double total, int i) {
+  Widget _legendRow(
+    ThemeData theme,
+    MapEntry<String, double> e,
+    Color color,
+    double total,
+    int i,
+  ) {
     final cs = theme.colorScheme;
     final pct = total == 0 ? 0.0 : e.value / total;
     final active = _touchedPie == i;
@@ -683,12 +730,15 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
             // right next to the label instead of across a wide gap.
             SizedBox(
               width: 148,
-              child: Text(prettyCategory(e.key),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
+              child: Text(
+                prettyCategory(e.key),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
             ),
             const SizedBox(width: 12),
             // The share bar takes all remaining width, so the amount each
@@ -707,20 +757,24 @@ class _OverviewChartsState extends ConsumerState<OverviewCharts> {
             const SizedBox(width: 12),
             SizedBox(
               width: 76,
-              child: Text(compactMoney(e.value),
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w800)),
+              child: Text(
+                compactMoney(e.value),
+                textAlign: TextAlign.right,
+                style: tableNumberStyle(theme, fontSize: 13),
+              ),
             ),
             const SizedBox(width: 8),
             SizedBox(
               width: 50,
-              child: Text('${(pct * 100).toStringAsFixed(1)}%',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                      color: cs.onSurfaceVariant)),
+              child: Text(
+                '${(pct * 100).toStringAsFixed(1)}%',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
             ),
           ],
         ),

@@ -6,6 +6,7 @@ import 'transactions_screen.dart';
 import 'settings_screen.dart';
 import '../providers/nav_provider.dart';
 import '../providers/theme_provider.dart';
+import '../theme/app_ui.dart';
 import '../theme/brutalism.dart';
 import '../widgets/top_bar.dart';
 
@@ -19,6 +20,7 @@ class MainShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedIndex = ref.watch(navIndexProvider);
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       body: Row(
@@ -26,22 +28,25 @@ class MainShell extends ConsumerWidget {
         children: [
           const _Sidebar(),
           Expanded(
-            child: Column(
-              children: [
-                const TopBar(),
-                Expanded(
-                  child: IndexedStack(
-                    index: selectedIndex,
-                    sizing: StackFit.expand,
-                    children: const [
-                      DashboardScreen(),
-                      TransactionsScreen(),
-                      CategoriesScreen(),
-                      SettingsScreen(),
-                    ],
+            child: DecoratedBox(
+              decoration: BoxDecoration(gradient: appCanvasGradient(cs)),
+              child: Column(
+                children: [
+                  const TopBar(),
+                  Expanded(
+                    child: IndexedStack(
+                      index: selectedIndex,
+                      sizing: StackFit.expand,
+                      children: const [
+                        DashboardScreen(),
+                        TransactionsScreen(),
+                        CategoriesScreen(),
+                        SettingsScreen(),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -66,8 +71,15 @@ class _Sidebar extends ConsumerWidget {
       curve: Curves.easeOut,
       width: width,
       decoration: BoxDecoration(
-        color: cs.surfaceContainer,
-        border: Border(right: BorderSide(color: brutalLine(cs), width: 2)),
+        color: cs.surfaceContainerLowest,
+        border: Border(right: BorderSide(color: brutalLine(cs), width: 1)),
+        boxShadow: [
+          BoxShadow(
+            color: cs.shadow.withValues(alpha: 0.08),
+            blurRadius: 24,
+            offset: const Offset(8, 0),
+          ),
+        ],
       ),
       // While the width animates between the two sizes, lay the content out at
       // its *target* width and clip to the animating width. Otherwise the rows
@@ -108,8 +120,11 @@ class _Sidebar extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      child: Icon(Icons.account_balance_wallet_rounded,
-                          size: 20, color: cs.onPrimary),
+                      child: Icon(
+                        Icons.account_balance_wallet_rounded,
+                        size: 20,
+                        color: cs.onPrimary,
+                      ),
                     ),
                     if (!collapsed) ...[
                       const SizedBox(width: 11),
@@ -124,7 +139,7 @@ class _Sidebar extends ConsumerWidget {
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.w800,
-                                letterSpacing: -0.3,
+                                letterSpacing: 0,
                                 height: 1.05,
                                 color: cs.primary,
                               ),
@@ -268,12 +283,8 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final fg = selected ? cs.onPrimary : cs.onSurfaceVariant;
-    final navIcon = Icon(
-      selected ? selectedIcon : icon,
-      size: 20,
-      color: fg,
-    );
+    final fg = selected ? cs.onPrimaryContainer : cs.onSurfaceVariant;
+    final navIcon = Icon(selected ? selectedIcon : icon, size: 20, color: fg);
     final item = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       child: Material(
@@ -288,14 +299,17 @@ class _NavItem extends StatelessWidget {
                 ? const EdgeInsets.symmetric(vertical: 11)
                 : const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             decoration: BoxDecoration(
-              color: selected ? cs.primary : Colors.transparent,
+              color: selected ? cs.primaryContainer : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: selected ? brutalLine(cs) : Colors.transparent,
-                width: 2,
+                color: selected
+                    ? cs.primary.withValues(alpha: 0.42)
+                    : Colors.transparent,
+                width: 1,
               ),
-              boxShadow:
-                  selected ? [brutalShadow(cs, dx: 3, dy: 3)] : null,
+              boxShadow: selected
+                  ? [brutalShadow(cs, color: cs.primary)]
+                  : null,
             ),
             child: collapsed
                 ? Center(child: navIcon)
@@ -310,8 +324,9 @@ class _NavItem extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 13,
-                            fontWeight:
-                                selected ? FontWeight.w900 : FontWeight.w700,
+                            fontWeight: selected
+                                ? FontWeight.w800
+                                : FontWeight.w700,
                             color: fg,
                           ),
                         ),
@@ -386,8 +401,11 @@ class _ThemeModeToggle extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    Icon(Icons.swap_horiz_rounded,
-                        size: 16, color: cs.onSurfaceVariant),
+                    Icon(
+                      Icons.swap_horiz_rounded,
+                      size: 16,
+                      color: cs.onSurfaceVariant,
+                    ),
                   ],
                 ),
         ),
@@ -397,7 +415,8 @@ class _ThemeModeToggle extends ConsumerWidget {
     return collapsed
         ? Tooltip(
             message: isDark ? 'Switch to light mode' : 'Switch to dark mode',
-            child: toggle)
+            child: toggle,
+          )
         : toggle;
   }
 }

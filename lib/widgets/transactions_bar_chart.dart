@@ -65,14 +65,21 @@ class _TransactionsBarChartState extends ConsumerState<TransactionsBarChart> {
           child: Icon(Icons.bar_chart, size: 16, color: cs.primary),
         ),
         const SizedBox(width: 10),
-        Text('Individual Transactions',
-            style: theme.textTheme.titleMedium
-                ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: -0.2)),
+        Text(
+          'Individual Transactions',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0,
+          ),
+        ),
         const SizedBox(width: 10),
         if (totalCount > rows.length)
-          Text('latest ${rows.length} of $totalCount',
-              style: theme.textTheme.labelSmall
-                  ?.copyWith(color: cs.onSurfaceVariant)),
+          Text(
+            'latest ${rows.length} of $totalCount',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
       ],
     );
 
@@ -93,8 +100,10 @@ class _TransactionsBarChartState extends ConsumerState<TransactionsBarChart> {
               children: [
                 Icon(Icons.bar_chart, color: cs.outline),
                 const SizedBox(width: 12),
-                Text('No expense transactions in this selection',
-                    style: TextStyle(color: cs.onSurfaceVariant)),
+                Text(
+                  'No expense transactions in this selection',
+                  style: TextStyle(color: cs.onSurfaceVariant),
+                ),
               ],
             ),
           ),
@@ -102,8 +111,7 @@ class _TransactionsBarChartState extends ConsumerState<TransactionsBarChart> {
       );
     }
 
-    final maxVal =
-        rows.map((e) => e.debit).reduce((a, b) => a > b ? a : b);
+    final maxVal = rows.map((e) => e.debit).reduce((a, b) => a > b ? a : b);
     final few = rows.length <= 20;
     // Generous headroom so the value labels / hover tooltips never collide
     // with the top of the chart.
@@ -112,12 +120,13 @@ class _TransactionsBarChartState extends ConsumerState<TransactionsBarChart> {
     final barWidth = few ? 24.0 : 14.0;
     final minChartWidth = rows.length * slotWidth;
     final labelStep = (rows.length / 8).ceil().clamp(1, rows.length);
-    final multiYear = rows.first.date.length >= 4 &&
+    final multiYear =
+        rows.first.date.length >= 4 &&
         rows.last.date.length >= 4 &&
         rows.first.date.substring(0, 4) != rows.last.date.substring(0, 4);
 
     final colors = [
-      for (final e in rows) categoryAccent(context, ref, e.category)
+      for (final e in rows) categoryAccent(context, ref, e.category),
     ];
     final chartedCategories = rows.map((e) => e.category).toSet().toList()
       ..sort();
@@ -141,8 +150,10 @@ class _TransactionsBarChartState extends ConsumerState<TransactionsBarChart> {
               end: Alignment.bottomRight,
               colors: [
                 cs.surfaceContainerLowest,
-                Color.alphaBlend(cs.primary.withValues(alpha: 0.04),
-                    cs.surfaceContainerLowest),
+                Color.alphaBlend(
+                  cs.primary.withValues(alpha: 0.04),
+                  cs.surfaceContainerLowest,
+                ),
               ],
             ),
             borderRadius: BorderRadius.circular(20),
@@ -178,11 +189,14 @@ class _TransactionsBarChartState extends ConsumerState<TransactionsBarChart> {
                               ),
                             ),
                             const SizedBox(width: 6),
-                            Text(prettyCategory(c),
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: cs.onSurfaceVariant)),
+                            Text(
+                              prettyCategory(c),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
                           ],
                         ),
                     ],
@@ -228,12 +242,13 @@ class _TransactionsBarChartState extends ConsumerState<TransactionsBarChart> {
                                           fitInsideHorizontally: true,
                                           getTooltipItem: (group, _, rod, _) =>
                                               BarTooltipItem(
-                                            compactMoney(rod.toY),
-                                            TextStyle(
-                                                color: cs.onSurface,
-                                                fontWeight: FontWeight.w800,
-                                                fontSize: 10.5),
-                                          ),
+                                                compactMoney(rod.toY),
+                                                TextStyle(
+                                                  color: cs.onSurface,
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 10.5,
+                                                ),
+                                              ),
                                         ),
                                       )
                                     // Many bars: hover for the detail.
@@ -246,31 +261,34 @@ class _TransactionsBarChartState extends ConsumerState<TransactionsBarChart> {
                                           fitInsideHorizontally: true,
                                           getTooltipItem: (group, _, rod, _) {
                                             final e = rows[group.x];
-                                            final desc = e.description.length >
-                                                    36
+                                            final desc =
+                                                e.description.length > 36
                                                 ? '${e.description.substring(0, 35)}…'
                                                 : e.description;
                                             return BarTooltipItem(
                                               '${xLabel(e.date)}\n',
                                               const TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 11),
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 11,
+                                              ),
                                               children: [
                                                 TextSpan(
                                                   text: '$desc\n',
                                                   style: const TextStyle(
-                                                      color: Colors.white70,
-                                                      fontSize: 10),
+                                                    color: Colors.white70,
+                                                    fontSize: 10,
+                                                  ),
                                                 ),
                                                 TextSpan(
-                                                  text: currency2
-                                                      .format(e.debit),
+                                                  text: currency2.format(
+                                                    e.debit,
+                                                  ),
                                                   style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                      fontSize: 11),
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w800,
+                                                    fontSize: 11,
+                                                  ),
                                                 ),
                                               ],
                                             );
@@ -281,21 +299,22 @@ class _TransactionsBarChartState extends ConsumerState<TransactionsBarChart> {
                                   for (var i = 0; i < rows.length; i++)
                                     BarChartGroupData(
                                       x: i,
-                                      showingTooltipIndicators:
-                                          few ? const [0] : const [],
+                                      showingTooltipIndicators: few
+                                          ? const [0]
+                                          : const [],
                                       barRods: [
                                         BarChartRodData(
                                           toY: rows[i].debit,
                                           width: barWidth,
                                           borderRadius:
                                               const BorderRadius.vertical(
-                                                  top: Radius.circular(5)),
+                                                top: Radius.circular(5),
+                                              ),
                                           gradient: LinearGradient(
                                             begin: Alignment.bottomCenter,
                                             end: Alignment.topCenter,
                                             colors: [
-                                              colors[i]
-                                                  .withValues(alpha: 0.72),
+                                              colors[i].withValues(alpha: 0.72),
                                               colors[i],
                                             ],
                                           ),
@@ -310,9 +329,12 @@ class _TransactionsBarChartState extends ConsumerState<TransactionsBarChart> {
                                       reservedSize: 46,
                                       getTitlesWidget: (v, _) => v == 0
                                           ? const SizedBox()
-                                          : Text(compactMoney(v),
+                                          : Text(
+                                              compactMoney(v),
                                               style: const TextStyle(
-                                                  fontSize: 9)),
+                                                fontSize: 9,
+                                              ),
+                                            ),
                                     ),
                                   ),
                                   bottomTitles: AxisTitles(
@@ -328,31 +350,35 @@ class _TransactionsBarChartState extends ConsumerState<TransactionsBarChart> {
                                           return const SizedBox();
                                         }
                                         return Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 8),
-                                          child: Text(xLabel(rows[i].date),
-                                              style: const TextStyle(
-                                                  fontSize: 9)),
+                                          padding: const EdgeInsets.only(
+                                            top: 8,
+                                          ),
+                                          child: Text(
+                                            xLabel(rows[i].date),
+                                            style: const TextStyle(fontSize: 9),
+                                          ),
                                         );
                                       },
                                     ),
                                   ),
                                   topTitles: const AxisTitles(
-                                      sideTitles:
-                                          SideTitles(showTitles: false)),
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
                                   rightTitles: const AxisTitles(
-                                      sideTitles:
-                                          SideTitles(showTitles: false)),
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
                                 ),
                                 borderData: FlBorderData(show: false),
                                 gridData: FlGridData(
                                   show: true,
                                   drawVerticalLine: false,
-                                  horizontalInterval:
-                                      maxVal <= 0 ? 1 : maxVal / 4,
+                                  horizontalInterval: maxVal <= 0
+                                      ? 1
+                                      : maxVal / 4,
                                   getDrawingHorizontalLine: (_) => FlLine(
-                                      color: cs.outlineVariant,
-                                      strokeWidth: 0.5),
+                                    color: cs.outlineVariant,
+                                    strokeWidth: 0.5,
+                                  ),
                                 ),
                               ),
                             ),

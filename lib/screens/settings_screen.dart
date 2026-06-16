@@ -8,7 +8,9 @@ import '../providers/dashboard_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/font_provider.dart';
 import '../providers/prefs_provider.dart';
+import '../theme/app_ui.dart';
 import '../theme/brutalism.dart';
+import '../theme/typography.dart';
 import '../widgets/db_path_dialog.dart';
 
 /// Settings & customization, laid out as a responsive grid of cards
@@ -18,35 +20,15 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Page header, matching the dashboard's.
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
-            decoration: BoxDecoration(
-              color: cs.surface,
-              border: Border(
-                  bottom: BorderSide(color: brutalLine(cs), width: 2)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Settings & Customization',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800, letterSpacing: -0.4)),
-                const SizedBox(height: 2),
-                Text(
-                    'Manage your profile, security preferences, and interface '
-                    'appearance.',
-                    style: theme.textTheme.labelSmall
-                        ?.copyWith(color: cs.onSurfaceVariant)),
-              ],
-            ),
+          const AppPageHeader(
+            icon: Icons.tune_rounded,
+            title: 'Settings & Customization',
+            subtitle: 'Manage data, appearance, typography, and preferences.',
           ),
           Expanded(
             child: Center(
@@ -149,7 +131,7 @@ class _Section extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
-      decoration: brutalBox(cs, radius: 16),
+      decoration: brutalBox(cs, radius: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -157,12 +139,14 @@ class _Section extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: cs.primary),
               const SizedBox(width: 10),
-              Text(title,
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.1,
-                    color: cs.onSurfaceVariant,
-                  )),
+              Text(
+                title,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
             ],
           ),
           Padding(
@@ -184,7 +168,7 @@ Widget _fieldLabel(ThemeData theme, String text, {double bottom = 10}) =>
         text,
         style: theme.textTheme.titleSmall?.copyWith(
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.1,
+          letterSpacing: 0,
         ),
       ),
     );
@@ -282,9 +266,11 @@ class _ModeButton extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon,
-                  size: 16,
-                  color: selected ? cs.primary : cs.onSurfaceVariant),
+              Icon(
+                icon,
+                size: 16,
+                color: selected ? cs.primary : cs.onSurfaceVariant,
+              ),
               const SizedBox(width: 7),
               Flexible(
                 child: Text(
@@ -417,7 +403,8 @@ class _VariantSelector extends ConsumerWidget {
         style: ButtonStyle(
           visualDensity: VisualDensity.compact,
           textStyle: WidgetStateProperty.all(
-              const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
         ),
         onSelectionChanged: (s) =>
             ref.read(schemeVariantProvider.notifier).select(s.first),
@@ -464,64 +451,62 @@ class _TypographyControls extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LayoutBuilder(builder: (context, c) {
-          final fontField = _LabeledField(
-            label: 'Font Family',
-            child: DropdownMenu<String>(
-              initialSelection: font,
-              expandedInsets: EdgeInsets.zero,
-              enableFilter: true,
-              requestFocusOnTap: true,
-              leadingIcon: const Icon(Icons.font_download_outlined, size: 18),
-              menuHeight: 360,
-              // Entries are plain text: with ~1,800 families, rendering each in
-              // its own font would download them all; the preview below shows
-              // the selected one instead.
-              dropdownMenuEntries: [
-                for (final f in systemFonts)
-                  DropdownMenuEntry(value: f, label: f),
-              ],
-              onSelected: (v) {
-                if (v != null) {
-                  ref.read(fontFamilyProvider.notifier).select(v);
-                }
-              },
-            ),
-          );
-          final densityField = _LabeledField(
-            label: 'Density / Base Size',
-            child: DropdownMenu<double>(
-              initialSelection: _nearestDensity(fontSize),
-              expandedInsets: EdgeInsets.zero,
-              requestFocusOnTap: false,
-              dropdownMenuEntries: [
-                for (final d in _densities)
-                  DropdownMenuEntry(value: d.$1, label: d.$2),
-              ],
-              onSelected: (v) {
-                if (v != null) ref.read(fontSizeProvider.notifier).setSize(v);
-              },
-            ),
-          );
-          // Two fields side by side when there's room, stacked when narrow.
-          if (c.maxWidth < 420) {
-            return Column(
+        LayoutBuilder(
+          builder: (context, c) {
+            final fontField = _LabeledField(
+              label: 'Font Family',
+              child: DropdownMenu<String>(
+                initialSelection: font,
+                expandedInsets: EdgeInsets.zero,
+                enableFilter: true,
+                requestFocusOnTap: true,
+                leadingIcon: const Icon(Icons.font_download_outlined, size: 18),
+                menuHeight: 360,
+                // Entries are plain text: with ~1,800 families, rendering each in
+                // its own font would download them all; the preview below shows
+                // the selected one instead.
+                dropdownMenuEntries: [
+                  for (final f in systemFonts)
+                    DropdownMenuEntry(value: f, label: f),
+                ],
+                onSelected: (v) {
+                  if (v != null) {
+                    ref.read(fontFamilyProvider.notifier).select(v);
+                  }
+                },
+              ),
+            );
+            final densityField = _LabeledField(
+              label: 'Density / Base Size',
+              child: DropdownMenu<double>(
+                initialSelection: _nearestDensity(fontSize),
+                expandedInsets: EdgeInsets.zero,
+                requestFocusOnTap: false,
+                dropdownMenuEntries: [
+                  for (final d in _densities)
+                    DropdownMenuEntry(value: d.$1, label: d.$2),
+                ],
+                onSelected: (v) {
+                  if (v != null) ref.read(fontSizeProvider.notifier).setSize(v);
+                },
+              ),
+            );
+            // Two fields side by side when there's room, stacked when narrow.
+            if (c.maxWidth < 420) {
+              return Column(
+                children: [fontField, const SizedBox(height: 16), densityField],
+              );
+            }
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                fontField,
-                const SizedBox(height: 16),
-                densityField,
+                Expanded(child: fontField),
+                const SizedBox(width: 16),
+                Expanded(child: densityField),
               ],
             );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: fontField),
-              const SizedBox(width: 16),
-              Expanded(child: densityField),
-            ],
-          );
-        }),
+          },
+        ),
         const SizedBox(height: 20),
         // Live specimen in the chosen font (the app-wide text theme already
         // carries it, so plain styles inherit the selection).
@@ -538,13 +523,16 @@ class _TypographyControls extends ConsumerWidget {
               style: TextStyle(fontSize: fontSize, height: 1.5),
               children: [
                 const TextSpan(
-                    text:
-                        'The quick brown fox jumps over the lazy dog. This is '
-                        'a preview of your selected typography settings in the '),
+                  text:
+                      'The quick brown fox jumps over the lazy dog. This is '
+                      'a preview of your selected typography settings in the ',
+                ),
                 TextSpan(
                   text: 'Expenses',
                   style: TextStyle(
-                      color: cs.primary, fontWeight: FontWeight.w700),
+                    color: cs.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const TextSpan(text: ' environment.'),
               ],
@@ -568,10 +556,13 @@ class _LabeledField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.onSurfaceVariant)),
+        Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 8),
         child,
       ],
@@ -599,18 +590,27 @@ class _DataSourceControls extends ConsumerWidget {
         Text(
           'Connect a local SQLite database to power your dashboard with '
           'real-time data.',
-          style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 16),
-        Text('SQLite File Path',
-            style: theme.textTheme.labelMedium?.copyWith(
-                fontWeight: FontWeight.w700, color: cs.onSurfaceVariant)),
+        Text(
+          'SQLite File Path',
+          style: theme.textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: cs.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 13,
+                ),
                 decoration: BoxDecoration(
                   color: cs.surfaceContainerLow,
                   borderRadius: BorderRadius.circular(10),
@@ -620,23 +620,32 @@ class _DataSourceControls extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: path == null
-                          ? Text('/path/to/your/database.sqlite',
+                          ? Text(
+                              '/path/to/your/database.sqlite',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.bodySmall?.copyWith(
-                                  color: cs.onSurfaceVariant
-                                      .withValues(alpha: 0.7)))
-                          : SelectableText(path,
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.7,
+                                ),
+                              ),
+                            )
+                          : SelectableText(
+                              path,
                               maxLines: 1,
-                              style: theme.textTheme.bodySmall),
+                              style: theme.textTheme.bodySmall,
+                            ),
                     ),
                     if (connected)
                       Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: Tooltip(
                           message: 'Connected',
-                          child: Icon(Icons.check_circle_rounded,
-                              size: 16, color: Colors.green.shade600),
+                          child: Icon(
+                            Icons.check_circle_rounded,
+                            size: 16,
+                            color: Colors.green.shade600,
+                          ),
                         ),
                       ),
                   ],
@@ -659,8 +668,9 @@ class _DataSourceControls extends ConsumerWidget {
               icon: const Icon(Icons.copy_rounded, size: 15),
               label: const Text('Copy path'),
               style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: const Size(0, 32)),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 32),
+              ),
             ),
           ),
         ],
@@ -703,13 +713,19 @@ class _AboutBlock extends ConsumerWidget {
                   ),
                 ],
               ),
-              child: Icon(Icons.account_balance_wallet_rounded,
-                  color: cs.onPrimary, size: 22),
+              child: Icon(
+                Icons.account_balance_wallet_rounded,
+                color: cs.onPrimary,
+                size: 22,
+              ),
             ),
             const SizedBox(width: 12),
-            Text('Expenses Dashboard',
-                style: theme.textTheme.titleSmall
-                    ?.copyWith(fontWeight: FontWeight.w800)),
+            Text(
+              'Expenses Dashboard',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
             const SizedBox(width: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -718,10 +734,13 @@ class _AboutBlock extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: cs.outlineVariant),
               ),
-              child: Text('v1.0.0',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: cs.onSurfaceVariant)),
+              child: Text(
+                'v1.0.0',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
             ),
           ],
         ),
@@ -731,10 +750,12 @@ class _AboutBlock extends ConsumerWidget {
           spacing: 10,
           runSpacing: 10,
           children: [
-            _factTile(theme, Icons.receipt_long_rounded, 'Transactions',
-                count == null
-                    ? '—'
-                    : NumberFormat.decimalPattern().format(count)),
+            _factTile(
+              theme,
+              Icons.receipt_long_rounded,
+              'Transactions',
+              count == null ? '—' : NumberFormat.decimalPattern().format(count),
+            ),
             _factTile(theme, Icons.storage_rounded, 'Data source', 'SQLite'),
             _factTile(theme, Icons.flutter_dash, 'Built with', 'Flutter'),
           ],
@@ -760,15 +781,19 @@ class _AboutBlock extends ConsumerWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label.toUpperCase(),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                      fontSize: 9,
-                      letterSpacing: 0.7,
-                      fontWeight: FontWeight.w700,
-                      color: cs.onSurfaceVariant)),
-              Text(value,
-                  style: theme.textTheme.labelLarge
-                      ?.copyWith(fontWeight: FontWeight.w800)),
+              Text(
+                label.toUpperCase(),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  fontSize: 9,
+                  letterSpacing: 0.7,
+                  fontWeight: FontWeight.w700,
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                value,
+                style: dashboardNumberStyle(theme.textTheme.labelLarge),
+              ),
             ],
           ),
         ],
