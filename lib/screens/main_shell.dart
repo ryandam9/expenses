@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'categories_screen.dart';
 import 'dashboard_screen.dart';
+import 'transactions_screen.dart';
 import 'settings_screen.dart';
 import '../providers/nav_provider.dart';
 import '../providers/theme_provider.dart';
+import '../widgets/top_bar.dart';
 
 /// App frame: a branded sidebar (logo, navigation, theme toggle) next to the
 /// active screen. Both screens stay mounted in an [IndexedStack] so switching
@@ -23,13 +25,21 @@ class MainShell extends ConsumerWidget {
         children: [
           const _Sidebar(),
           Expanded(
-            child: IndexedStack(
-              index: selectedIndex,
-              sizing: StackFit.expand,
-              children: const [
-                DashboardScreen(),
-                CategoriesScreen(),
-                SettingsScreen(),
+            child: Column(
+              children: [
+                const TopBar(),
+                Expanded(
+                  child: IndexedStack(
+                    index: selectedIndex,
+                    sizing: StackFit.expand,
+                    children: const [
+                      DashboardScreen(),
+                      TransactionsScreen(),
+                      CategoriesScreen(),
+                      SettingsScreen(),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -145,20 +155,28 @@ class _Sidebar extends ConsumerWidget {
                 onTap: () => ref.read(navIndexProvider.notifier).select(0),
               ),
               _NavItem(
-                icon: Icons.category_outlined,
-                selectedIcon: Icons.category_rounded,
-                label: 'Categories',
+                icon: Icons.receipt_long_outlined,
+                selectedIcon: Icons.receipt_long_rounded,
+                label: 'Transactions',
                 selected: selectedIndex == 1,
                 collapsed: collapsed,
                 onTap: () => ref.read(navIndexProvider.notifier).select(1),
               ),
               _NavItem(
-                icon: Icons.settings_outlined,
-                selectedIcon: Icons.settings_rounded,
-                label: 'Settings',
+                icon: Icons.category_outlined,
+                selectedIcon: Icons.category_rounded,
+                label: 'Categories',
                 selected: selectedIndex == 2,
                 collapsed: collapsed,
                 onTap: () => ref.read(navIndexProvider.notifier).select(2),
+              ),
+              _NavItem(
+                icon: Icons.settings_outlined,
+                selectedIcon: Icons.settings_rounded,
+                label: 'Settings',
+                selected: selectedIndex == 3,
+                collapsed: collapsed,
+                onTap: () => ref.read(navIndexProvider.notifier).select(3),
               ),
               const Spacer(),
               // ------------------------------------------------------ footer
