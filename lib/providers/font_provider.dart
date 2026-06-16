@@ -5,7 +5,8 @@ import 'prefs_provider.dart';
 class FontFamilyNotifier extends Notifier<String> {
   @override
   String build() =>
-      ref.read(sharedPreferencesProvider).getString('fontFamily') ?? 'Inter';
+      ref.read(sharedPreferencesProvider).getString('fontFamily') ??
+      'Roboto Condensed';
 
   void select(String family) {
     state = family;
