@@ -90,7 +90,11 @@ class _Sidebar extends ConsumerWidget {
         curve: Curves.easeOut,
         width: width,
         decoration: BoxDecoration(
-          color: cs.surfaceContainerLowest,
+          // Pin the rail to a near-black slate rather than the theme's darkest
+          // surface — that derived tone picks up the accent tint and doesn't
+          // read as black. The wrapping dark [railTheme] still drives legible
+          // on-dark foregrounds.
+          color: const Color(0xFF0E1320),
           border: Border(right: BorderSide(color: brutalLine(cs), width: 1)),
           boxShadow: [
             BoxShadow(
