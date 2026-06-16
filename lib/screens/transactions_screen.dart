@@ -666,7 +666,25 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
   void _resizeColumn(int i, double dx) {
     setState(() {
-      _colWidths[i] = (_colWidths[i] + dx).clamp(_minColWidth, _maxColWidth);
+      if (i + 1 >= _colWidths.length) {
+        // The last column has no neighbour to trade with, so it just resizes
+        // (and the table grows/scrolls).
+        _colWidths[i] = (_colWidths[i] + dx).clamp(_minColWidth, _maxColWidth);
+        return;
+      }
+      // Move the divider between column i and i+1: grow one side and shrink the
+      // other by the same amount, keeping every other column fixed. Otherwise
+      // resizing a column shoved all the columns to its right along with it,
+      // which looked like the columns were moving together.
+      final left = _colWidths[i];
+      final right = _colWidths[i + 1];
+      var delta = dx;
+      if (left + delta < _minColWidth) delta = _minColWidth - left;
+      if (left + delta > _maxColWidth) delta = _maxColWidth - left;
+      if (right - delta < _minColWidth) delta = right - _minColWidth;
+      if (right - delta > _maxColWidth) delta = right - _maxColWidth;
+      _colWidths[i] = left + delta;
+      _colWidths[i + 1] = right - delta;
     });
     _saveColWidths();
   }
@@ -815,8 +833,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
     );
   }
 
-  // A draggable grip occupying the inter-column gap. Drag to resize the column
-  // to its left; double-tap to reset it to the default width.
+  // A draggable grip occupying the inter-column gap. Drag to move the divider
+  // between the two adjacent columns (trading width between them, leaving the
+  // rest fixed); double-tap to reset the column on its left to the default.
   Widget _resizeHandle(int i, Color gripColor) {
     return MouseRegion(
       cursor: SystemMouseCursors.resizeColumn,
