@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Expenses — Refined Brutalist mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --canvas:#F5F4F0;
+    --surface:#FFFFFF;
+    --surface-2:#F1F0EB;
+    --surface-3:#FBFAF8;
+    --ink:#1C1C22;
+    --ink-soft:#56565F;
+    --ink-faint:#8C8C95;
+    --line:#23232B;        /* refined border — dark slate, not pure black */
+    --line-soft:#E4E3DD;   /* hairline divider inside cards */
+    --accent:#5A57F2;      /* indigo — used sparingly */
+    --accent-soft:#ECECFF;
+    --pos:#2F9E68;         /* income / positive */
+    --neg:#D44A4A;         /* expense / negative */
+    --shadow:3px 3px 0 0 var(--line);     /* ONE hard offset, small */
+    --shadow-press:1px 1px 0 0 var(--line);
+    --radius:11px;
+    --r-sm:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Space Grotesk',system-ui,sans-serif;
+    background:#E6E5E1;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    padding:34px 22px 60px;
+    line-height:1.45;
+  }
+  .num{font-family:'JetBrains Mono',monospace;font-feature-settings:"tnum" 1;}
+  .page{max-width:1200px;margin:0 auto;}
+
+  /* ---- top caption / token strip ---- */
+  .caption{max-width:1200px;margin:0 auto 26px;}
+  .caption h1{font-size:20px;font-weight:700;letter-spacing:-0.01em;}
+  .caption p{color:#55555E;font-size:13px;margin-top:4px;}
+  .tokens{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+  .token{font-size:11px;font-weight:600;background:#fff;border:1.5px solid var(--line);
+    border-radius:999px;padding:5px 11px;display:flex;align-items:center;gap:7px;}
+  .dot{width:11px;height:11px;border-radius:3px;border:1.5px solid var(--line);}
+  .label{font-size:13px;color:#55555E;margin:30px auto 10px;max-width:1200px;
+    font-weight:600;text-transform:uppercase;letter-spacing:.08em;}
+
+  /* ---- app window ---- */
+  .window{background:var(--surface);border:1.5px solid var(--line);border-radius:16px;
+    box-shadow:6px 6px 0 0 var(--line);overflow:hidden;}
+  .chrome{height:46px;background:var(--surface-3);border-bottom:1.5px solid var(--line);
+    display:flex;align-items:center;gap:9px;padding:0 16px;}
+  .traffic{width:12px;height:12px;border-radius:50%;border:1.5px solid var(--line);}
+  .chrome .title{margin-left:10px;font-weight:600;font-size:13px;color:var(--ink-soft);}
+  .shell{display:grid;grid-template-columns:228px 1fr;min-height:660px;}
+
+  /* ---- sidebar ---- */
+  .side{background:var(--surface-3);border-right:1.5px solid var(--line);padding:20px 16px;display:flex;flex-direction:column;}
+  .brand{display:flex;align-items:center;gap:11px;padding:4px 8px 18px;}
+  .logo{width:34px;height:34px;border-radius:9px;background:var(--accent);border:1.5px solid var(--line);
+    display:grid;place-items:center;color:#fff;box-shadow:2px 2px 0 0 var(--line);}
+  .brand b{font-size:17px;font-weight:700;letter-spacing:-0.01em;}
+  .brand span{display:block;font-size:10.5px;color:var(--ink-faint);font-weight:600;letter-spacing:.04em;}
+  .nav{display:flex;flex-direction:column;gap:5px;margin-top:6px;}
+  .nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--r-sm);
+    font-weight:600;font-size:14px;color:var(--ink-soft);text-decoration:none;border:1.5px solid transparent;}
+  .nav a .ic{color:var(--ink-faint);display:flex;}
+  .nav a.active{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);}
+  .nav a.active .ic{color:var(--accent);}
+  .side .foot{margin-top:auto;font-size:11px;color:var(--ink-faint);padding:10px 8px 0;border-top:1px solid var(--line-soft);}
+
+  /* ---- content ---- */
+  .content{padding:24px 26px 30px;background:
+    radial-gradient(900px 360px at 100% -8%, rgba(90,87,242,.06), transparent 60%),
+    radial-gradient(700px 320px at -6% 108%, rgba(47,158,104,.05), transparent 60%),
+    var(--canvas);
+    overflow:auto;}
+  .phead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;}
+  .phead .ttl{display:flex;align-items:center;gap:12px;}
+  .phead .ttl .badge{width:38px;height:38px;border-radius:10px;background:#fff;border:1.5px solid var(--line);
+    display:grid;place-items:center;color:var(--accent);box-shadow:2px 2px 0 0 var(--line);}
+  .phead h2{font-size:24px;font-weight:700;letter-spacing:-0.02em;}
+  .phead .sub{font-size:13px;color:var(--ink-soft);margin-top:1px;}
+
+  .pill{display:inline-flex;align-items:center;gap:7px;background:var(--accent-soft);color:var(--accent-ink,#3F3DC4);
+    border:1.5px solid var(--accent);border-radius:999px;padding:6px 12px;font-size:11.5px;font-weight:700;
+    letter-spacing:.05em;text-transform:uppercase;}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:inherit;font-weight:600;font-size:13px;
+    border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:var(--r-sm);
+    padding:9px 14px;cursor:pointer;box-shadow:var(--shadow-press);}
+  .btn.primary{background:var(--accent);color:#fff;}
+  .btn.icon{padding:9px;}
+
+  /* ---- KPI grid ---- */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));gap:14px;margin-bottom:22px;}
+  .kpi{background:#fff;border:1.5px solid var(--line);border-radius:var(--radius);padding:16px;
+    box-shadow:var(--shadow);}
+  .kpi .ico{width:30px;height:30px;border-radius:8px;border:1.5px solid var(--line);display:grid;place-items:center;color:#fff;}
+  .kpi .val{font-size:25px;font-weight:700;margin:13px 0 3px;letter-spacing:-0.01em;}
+  .kpi .lab{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-faint);}
+  .kpi .delta{font-size:11px;font-weight:600;margin-top:6px;display:inline-flex;align-items:center;gap:3px;}
+
+  /* ---- section title ---- */
+  .stitle{display:flex;align-items:center;gap:10px;margin:24px 0 12px;}
+  .stitle .si{width:26px;height:26px;border-radius:7px;background:var(--surface-2);border:1.5px solid var(--line);
+    display:grid;place-items:center;color:var(--accent);}
+  .stitle h3{font-size:16px;font-weight:700;letter-spacing:-0.01em;}
+  .stitle p{font-size:12px;color:var(--ink-faint);}
+
+  .card{background:#fff;border:1.5px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);}
+
+  /* ---- category rows ---- */
+  .catwrap{padding:8px 18px;}
+  .catrow{display:flex;align-items:center;gap:13px;padding:12px 0;border-bottom:1px solid var(--line-soft);}
+  .catrow:last-child{border-bottom:none;}
+  .catico{width:32px;height:32px;border-radius:8px;border:1.5px solid var(--line);display:grid;place-items:center;font-size:15px;flex-shrink:0;}
+  .catrow .body{flex:1;min-width:0;}
+  .catrow .toprow{display:flex;align-items:center;gap:10px;}
+  .catrow .name{font-weight:600;font-size:14px;flex:1;}
+  .catrow .amt{font-size:13.5px;font-weight:600;}
+  .catrow .pct{font-size:11.5px;color:var(--ink-faint);font-weight:600;width:40px;text-align:right;}
+  .bar{height:11px;border-radius:6px;background:var(--surface-2);border:1.5px solid var(--line);margin-top:7px;overflow:hidden;}
+  .bar i{display:block;height:100%;}
+
+  /* ---- recent tx list ---- */
+  .txrow{display:flex;align-items:center;gap:14px;padding:13px 18px;border-bottom:1px solid var(--line-soft);}
+  .txrow:last-child{border-bottom:none;}
+  .txrow .date{width:96px;font-size:12.5px;color:var(--ink-soft);}
+  .txrow .desc{flex:1;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .txrow .amt{width:130px;text-align:right;font-size:13.5px;font-weight:600;}
+  .viewall{display:block;text-align:center;padding:13px;font-weight:700;color:var(--accent);
+    border-top:1.5px solid var(--line);font-size:13.5px;text-decoration:none;}
+
+  /* chips */
+  .chip{display:inline-flex;align-items:center;font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:7px;
+    border:1.5px solid var(--line);white-space:nowrap;}
+
+  /* ---- full table ---- */
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap;}
+  .field{display:flex;align-items:center;gap:9px;background:#fff;border:1.5px solid var(--line);border-radius:var(--r-sm);
+    padding:9px 12px;font-size:13px;color:var(--ink-soft);}
+  .field.grow{flex:1;min-width:220px;}
+  .seg{display:inline-flex;border:1.5px solid var(--line);border-radius:var(--r-sm);overflow:hidden;}
+  .seg button{font-family:inherit;font-weight:600;font-size:12.5px;border:none;background:#fff;color:var(--ink-soft);
+    padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:7px;}
+  .seg button.on{background:var(--accent);color:#fff;}
+  .seg button+button{border-left:1.5px solid var(--line);}
+
+  table{width:100%;border-collapse:collapse;}
+  thead th{background:var(--surface-2);text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--ink-soft);padding:13px 16px;border-bottom:1.5px solid var(--line);}
+  thead th.r{text-align:right;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--line-soft);font-size:13px;}
+  tbody tr:nth-child(even){background:var(--surface-3);}
+  tbody tr:last-child td{border-bottom:none;}
+  td.r{text-align:right;}
+  td.idx{color:var(--ink-faint);}
+  td.desc b{font-weight:600;}
+  td.desc small{display:block;color:var(--ink-faint);font-size:11.5px;font-weight:500;}
+  .pos{color:var(--pos);} .neg{color:var(--neg);}
+
+  .pager{display:flex;align-items:center;gap:12px;padding:11px 16px;border-top:1.5px solid var(--line);
+    background:var(--surface-3);font-size:12.5px;color:var(--ink-soft);}
+  .pager .sp{flex:1;}
+  .pager .pg{width:30px;height:30px;border:1.5px solid var(--line);border-radius:7px;background:#fff;
+    display:grid;place-items:center;font-weight:600;font-size:12.5px;}
+  .pager .pg.on{background:var(--accent);color:#fff;}
+</style>
+</head>
+<body>
+
+<div class="caption">
+  <h1>Expenses — “Refined Brutalist” direction</h1>
+  <p>Keeps the bold identity, removes the noise: softer slate borders (not pure black), one small hard offset shadow used only on cards, three type weights for real hierarchy, and accent colour used sparingly. Real fonts: Space Grotesk (UI) + JetBrains Mono (figures).</p>
+  <div class="tokens">
+    <span class="token"><span class="dot" style="background:#23232B"></span>Border #23232B · 1.5px</span>
+    <span class="token"><span class="dot" style="background:#5A57F2"></span>Accent #5A57F2 (sparing)</span>
+    <span class="token"><span class="dot" style="background:#2F9E68"></span>Income</span>
+    <span class="token"><span class="dot" style="background:#D44A4A"></span>Expense</span>
+    <span class="token">Shadow · 3px hard offset</span>
+    <span class="token">Radius · 11px</span>
+  </div>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div class="label">1 · Summary / Dashboard</div>
+<div class="page">
+<div class="window">
+  <div class="chrome">
+    <span class="traffic" style="background:#F6655B"></span>
+    <span class="traffic" style="background:#F6BE3F"></span>
+    <span class="traffic" style="background:#54C04A"></span>
+    <span class="title">Expenses</span>
+  </div>
+  <div class="shell">
+    <!-- sidebar -->
+    <aside class="side">
+      <div class="brand">
+        <span class="logo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+        </span>
+        <div><b>Expenses</b><span>PERSONAL FINANCE</span></div>
+      </div>
+      <nav class="nav">
+        <a class="active"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>Summary</a>
+        <a><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>Transactions</a>
+        <a><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>Categories</a>
+        <a><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Settings</a>
+      </nav>
+      <div class="foot">v1.0.0 · SQLite connected</div>
+    </aside>
+
+    <!-- content -->
+    <main class="content">
+      <div class="phead">
+        <div class="ttl">
+          <span class="badge"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>
+          <div><h2>Summary</h2><div class="sub">Your latest month at a glance, straight from your database.</div></div>
+        </div>
+        <button class="btn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button>
+      </div>
+
+      <span class="pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>October 2023</span>
+
+      <div class="kpis" style="margin-top:16px;">
+        <div class="kpi">
+          <span class="ico" style="background:var(--neg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"/><polyline points="17 17 7 17 7 7"/></svg></span>
+          <div class="val num">$14,285</div>
+          <div class="lab">Expenses</div>
+          <div class="delta neg">▲ 2.4% vs last month</div>
+        </div>
+        <div class="kpi">
+          <span class="ico" style="background:var(--pos)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></span>
+          <div class="val num">$42,150</div>
+          <div class="lab">Income</div>
+          <div class="delta pos">▲ 6.1% vs last month</div>
+        </div>
+        <div class="kpi">
+          <span class="ico" style="background:var(--pos)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 21 7 17 3"/><line x1="21" y1="7" x2="9" y2="7"/><polyline points="7 13 3 17 7 21"/><line x1="15" y1="17" x2="3" y2="17"/></svg></span>
+          <div class="val num">+$27,865</div>
+          <div class="lab">Net</div>
+          <div class="delta pos">Positive month</div>
+        </div>
+        <div class="kpi">
+          <span class="ico" style="background:var(--accent)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+          <div class="val num">142</div>
+          <div class="lab">Transactions</div>
+          <div class="delta" style="color:var(--ink-faint)">in this month</div>
+        </div>
+      </div>
+
+      <div class="stitle">
+        <span class="si"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>
+        <div><h3>Expenses by Category</h3><p>Top spending groups for this period</p></div>
+      </div>
+      <div class="card catwrap">
+        <div class="catrow">
+          <span class="catico" style="background:#E9ECFF">🏠</span>
+          <div class="body"><div class="toprow"><span class="name">Housing & Rent</span><span class="amt num">$5,400</span><span class="pct num">38%</span></div><div class="bar"><i style="width:100%;background:#5A57F2"></i></div></div>
+        </div>
+        <div class="catrow">
+          <span class="catico" style="background:#FFEDE2">🍔</span>
+          <div class="body"><div class="toprow"><span class="name">Food & Dining</span><span class="amt num">$3,120</span><span class="pct num">22%</span></div><div class="bar"><i style="width:58%;background:#E07B2E"></i></div></div>
+        </div>
+        <div class="catrow">
+          <span class="catico" style="background:#E3F6EC">🚗</span>
+          <div class="body"><div class="toprow"><span class="name">Transport</span><span class="amt num">$2,260</span><span class="pct num">16%</span></div><div class="bar"><i style="width:42%;background:#2F9E68"></i></div></div>
+        </div>
+        <div class="catrow">
+          <span class="catico" style="background:#FFF3D4">⚡</span>
+          <div class="body"><div class="toprow"><span class="name">Utilities</span><span class="amt num">$1,840</span><span class="pct num">13%</span></div><div class="bar"><i style="width:34%;background:#C49A12"></i></div></div>
+        </div>
+        <div class="catrow">
+          <span class="catico" style="background:#F3E8FF">🎬</span>
+          <div class="body"><div class="toprow"><span class="name">Entertainment</span><span class="amt num">$1,665</span><span class="pct num">11%</span></div><div class="bar"><i style="width:30%;background:#8a4fd0"></i></div></div>
+        </div>
+      </div>
+
+      <div class="stitle">
+        <span class="si"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+        <div><h3>Recent Transactions</h3><p>Latest activity in the selected month</p></div>
+      </div>
+      <div class="card">
+        <div class="txrow"><span class="date num">24 Oct 2023</span><span class="desc">Vanguard S&amp;P 500 ETF Purchase</span><span class="chip" style="background:#EAF0FF;color:#2E5BD0">Investment</span><span class="amt num neg">−$25,000.00</span></div>
+        <div class="txrow"><span class="date num">22 Oct 2023</span><span class="desc">Apex Corporate Dividend</span><span class="chip" style="background:#E3F6EC;color:#1F7A4D">Income</span><span class="amt num pos">+$8,450.00</span></div>
+        <div class="txrow"><span class="date num">20 Oct 2023</span><span class="desc">Whole Foods Market</span><span class="chip" style="background:#FFEDE2;color:#C2570F">Food</span><span class="amt num neg">−$184.20</span></div>
+        <div class="txrow"><span class="date num">18 Oct 2023</span><span class="desc">Quarterly Management Fee</span><span class="chip" style="background:#FCE6E6;color:#C23B3B">Fees</span><span class="amt num neg">−$1,250.00</span></div>
+        <a class="viewall">View all transactions →</a>
+      </div>
+    </main>
+  </div>
+</div>
+</div>
+
+<!-- ============ TRANSACTIONS ============ -->
+<div class="label">2 · Transactions</div>
+<div class="page">
+<div class="window">
+  <div class="chrome">
+    <span class="traffic" style="background:#F6655B"></span>
+    <span class="traffic" style="background:#F6BE3F"></span>
+    <span class="traffic" style="background:#54C04A"></span>
+    <span class="title">Expenses</span>
+  </div>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">
+        <span class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></span>
+        <div><b>Expenses</b><span>PERSONAL FINANCE</span></div>
+      </div>
+      <nav class="nav">
+        <a><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>Summary</a>
+        <a class="active"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>Transactions</a>
+        <a><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>Categories</a>
+        <a><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Settings</a>
+      </nav>
+      <div class="foot">v1.0.0 · SQLite connected</div>
+    </aside>
+
+    <main class="content">
+      <div class="phead">
+        <div class="ttl">
+          <span class="badge"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>
+          <div><h2>Transactions</h2><div class="sub num">1 Oct 2023 — 31 Oct 2023</div></div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <div class="seg">
+            <button class="on"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Transactions</button>
+            <button><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Overview</button>
+          </div>
+          <button class="btn icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+        </div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi">
+          <span class="ico" style="background:var(--neg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"/><polyline points="17 17 7 17 7 7"/></svg></span>
+          <div class="val num">$14,285</div><div class="lab">Expenses</div>
+          <div class="delta neg">▲ 2.4% vs prev</div>
+        </div>
+        <div class="kpi">
+          <span class="ico" style="background:var(--accent)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+          <div class="val num">142</div><div class="lab">Transactions</div>
+          <div class="delta" style="color:var(--ink-faint)">matching filters</div>
+        </div>
+        <div class="kpi">
+          <span class="ico" style="background:var(--neg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
+          <div class="val num">$25,000</div><div class="lab">Largest</div>
+          <div class="delta" style="color:var(--ink-faint)">Vanguard ETF</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="field grow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Search description, category or bank…  (Ctrl+F)</div>
+        <div class="field"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>Filters</div>
+      </div>
+
+      <div class="card" style="overflow:hidden;">
+        <table>
+          <thead>
+            <tr><th style="width:48px">#</th><th>Date</th><th>Description</th><th>Bank</th><th class="r">Amount</th><th>Category</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="idx num">1</td><td class="num">31 Oct 2023</td><td class="desc"><b>Vanguard Global Equity</b><small>Ref TR-98421</small></td><td>HSBC</td><td class="r num pos">+$45,200.00</td><td><span class="chip" style="background:#E3F6EC;color:#1F7A4D">Dividend</span></td></tr>
+            <tr><td class="idx num">2</td><td class="num">28 Oct 2023</td><td class="desc"><b>Apex Management Partners</b><small>Q3 advisory fee</small></td><td>HSBC</td><td class="r num neg">−$12,500.00</td><td><span class="chip" style="background:#FCE6E6;color:#C23B3B">Mgmt Fee</span></td></tr>
+            <tr><td class="idx num">3</td><td class="num">25 Oct 2023</td><td class="desc"><b>US Treasury Bonds</b><small>Coupon payment series A</small></td><td>Chase</td><td class="r num pos">+$8,450.25</td><td><span class="chip" style="background:#EAF0FF;color:#2E5BD0">Interest</span></td></tr>
+            <tr><td class="idx num">4</td><td class="num">24 Oct 2023</td><td class="desc"><b>Whole Foods Market</b><small>Groceries</small></td><td>Amex</td><td class="r num neg">−$184.20</td><td><span class="chip" style="background:#FFEDE2;color:#C2570F">Food</span></td></tr>
+            <tr><td class="idx num">5</td><td class="num">22 Oct 2023</td><td class="desc"><b>Uber Trip</b><small>Airport → Home</small></td><td>Amex</td><td class="r num neg">−$54.80</td><td><span class="chip" style="background:#E3F6EC;color:#1F7A4D">Transport</span></td></tr>
+            <tr><td class="idx num">6</td><td class="num">20 Oct 2023</td><td class="desc"><b>City Power & Light</b><small>October utilities</small></td><td>Chase</td><td class="r num neg">−$212.45</td><td><span class="chip" style="background:#FFF3D4;color:#9A7A12">Utilities</span></td></tr>
+          </tbody>
+        </table>
+        <div class="pager">
+          <span>Rows per page <b class="num">50</b></span>
+          <span class="sp"></span>
+          <span class="num">1–6 of 142</span>
+          <span class="pg on num">1</span><span class="pg num">2</span><span class="pg num">3</span>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</div>
+
+<style>
+  /* ---- categories screen ---- */
+  .cats{padding:0;display:flex;}
+  .catlist{width:286px;border-right:1.5px solid var(--line);background:var(--surface-3);display:flex;flex-direction:column;}
+  .catlist .top{padding:14px 14px 6px;}
+  .catlist .meta{display:flex;align-items:center;justify-content:space-between;padding:2px 16px 8px;
+    font-size:10.5px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;}
+  .catlist .meta a{color:var(--ink-faint);text-decoration:none;font-weight:600;}
+  .clist{overflow:auto;padding:2px 0 10px;}
+  .clitem{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:8px;margin:1px 8px;}
+  .clitem.sel{background:var(--accent-soft);}
+  .cbox{width:18px;height:18px;border-radius:5px;border:2px solid var(--ink-faint);display:grid;place-items:center;flex-shrink:0;color:#fff;}
+  .clitem.sel .cbox{background:var(--accent);border-color:var(--accent);}
+  .clitem .ci{font-size:14px;width:18px;text-align:center;}
+  .clitem .nm{flex:1;min-width:0;}
+  .clitem .nm b{font-size:12.5px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .clitem.sel .nm b{color:var(--accent);font-weight:700;}
+  .clitem .nm small{font-size:9.5px;color:var(--ink-faint);}
+  .clitem .tot{font-size:12px;font-weight:600;}
+  .catresults{flex:1;padding:18px 20px;overflow:auto;background:
+    radial-gradient(800px 320px at 100% -8%, rgba(90,87,242,.05), transparent 60%), var(--canvas);}
+  .rowchips{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .gchip{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1.5px solid var(--line);
+    border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;}
+  .gchip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
+
+  /* ---- settings screen ---- */
+  .setgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;max-width:1040px;}
+  .scard{background:#fff;border:1.5px solid var(--line);border-radius:11px;box-shadow:var(--shadow);padding:20px 22px;}
+  .scard .hd{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--line-soft);margin-bottom:16px;}
+  .scard .hd .si{color:var(--accent);display:flex;}
+  .scard .hd h4{font-size:12px;font-weight:800;letter-spacing:.07em;color:var(--ink-soft);text-transform:uppercase;}
+  .flabel{font-size:13px;font-weight:700;margin:16px 0 9px;}
+  .flabel.first{margin-top:0;}
+  .modebtns{display:flex;gap:10px;}
+  .modebtn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:11px;border:1.5px solid var(--line);
+    border-radius:8px;font-size:13px;font-weight:600;background:#fff;color:var(--ink-soft);}
+  .modebtn.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);}
+  .swatches{display:flex;gap:14px;flex-wrap:wrap;}
+  .sw{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;color:#fff;
+    box-shadow:0 0 0 2.5px transparent;}
+  .sw.on{box-shadow:0 0 0 2.5px #fff,0 0 0 4px var(--ink);}
+  .intensity{display:inline-flex;border:1.5px solid var(--line);border-radius:8px;overflow:hidden;}
+  .intensity button{font-family:inherit;font-weight:600;font-size:12px;border:none;background:#fff;color:var(--ink-soft);
+    padding:9px 13px;display:flex;align-items:center;gap:6px;}
+  .intensity button.on{background:var(--accent);color:#fff;}
+  .intensity button+button{border-left:1.5px solid var(--line);}
+  .pathfield{display:flex;gap:10px;align-items:center;}
+  .pathbox{flex:1;display:flex;align-items:center;gap:9px;background:var(--surface-3);border:1.5px solid var(--line);
+    border-radius:8px;padding:11px 13px;font-size:12.5px;color:var(--ink-soft);}
+  .facts{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;}
+  .fact{display:flex;align-items:center;gap:9px;background:var(--surface-3);border:1.5px solid var(--line);
+    border-radius:9px;padding:9px 13px;}
+  .fact .fl{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);}
+  .fact .fv{font-size:13px;font-weight:700;}
+  .appicon{width:42px;height:42px;border-radius:11px;border:1.5px solid var(--line);display:grid;place-items:center;color:#fff;
+    background:linear-gradient(135deg,var(--accent),#8a4fd0);box-shadow:2px 2px 0 0 var(--line);}
+  .vchip{font-size:10.5px;font-weight:700;color:var(--ink-soft);background:var(--surface-2);border:1.5px solid var(--line);
+    border-radius:999px;padding:3px 9px;}
+</style>
+
+<!-- ============ CATEGORIES ============ -->
+<div class="label">3 · Categories</div>
+<div class="page">
+<div class="window">
+  <div class="chrome">
+    <span class="traffic" style="background:#F6655B"></span>
+    <span class="traffic" style="background:#F6BE3F"></span>
+    <span class="traffic" style="background:#54C04A"></span>
+    <span class="title">Expenses</span>
+  </div>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">
+        <span class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></span>
+        <div><b>Expenses</b><span>PERSONAL FINANCE</span></div>
+      </div>
+      <nav class="nav">
+        <a><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>Summary</a>
+        <a><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>Transactions</a>
+        <a class="active"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>Categories</a>
+        <a><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Settings</a>
+      </nav>
+      <div class="foot">v1.0.0 · SQLite connected</div>
+    </aside>
+
+    <main class="content cats">
+      <!-- category picker -->
+      <div class="catlist">
+        <div class="top"><div class="field"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Search categories…</div></div>
+        <div class="meta"><span>2 selected</span><a>Clear</a></div>
+        <div class="clist">
+          <div class="clitem sel"><span class="cbox"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span class="ci">🍔</span><span class="nm"><b>Food &amp; Dining</b><small>318 transactions</small></span><span class="tot num">$31.2k</span></div>
+          <div class="clitem sel"><span class="cbox"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><span class="ci">🚗</span><span class="nm"><b>Transport</b><small>146 transactions</small></span><span class="tot num">$18.4k</span></div>
+          <div class="clitem"><span class="cbox"></span><span class="ci">🏠</span><span class="nm"><b>Housing &amp; Rent</b><small>36 transactions</small></span><span class="tot num">$64.8k</span></div>
+          <div class="clitem"><span class="cbox"></span><span class="ci">⚡</span><span class="nm"><b>Utilities</b><small>72 transactions</small></span><span class="tot num">$9.1k</span></div>
+          <div class="clitem"><span class="cbox"></span><span class="ci">🎬</span><span class="nm"><b>Entertainment</b><small>94 transactions</small></span><span class="tot num">$7.7k</span></div>
+          <div class="clitem"><span class="cbox"></span><span class="ci">🛒</span><span class="nm"><b>Shopping</b><small>129 transactions</small></span><span class="tot num">$12.3k</span></div>
+          <div class="clitem"><span class="cbox"></span><span class="ci">💊</span><span class="nm"><b>Health</b><small>41 transactions</small></span><span class="tot num">$4.2k</span></div>
+        </div>
+      </div>
+
+      <!-- results -->
+      <div class="catresults">
+        <div class="rowchips">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span class="gchip on"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>All time</span>
+          <span class="gchip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Custom period…</span>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi"><span class="ico" style="background:var(--neg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"/><polyline points="17 17 7 17 7 7"/></svg></span><div class="val num">$49,640</div><div class="lab">Total spent</div></div>
+          <div class="kpi"><span class="ico" style="background:var(--accent)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span><div class="val num">464</div><div class="lab">Transactions</div></div>
+          <div class="kpi"><span class="ico" style="background:#8a4fd0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><div class="val num">$1,860</div><div class="lab">Avg / month</div></div>
+          <div class="kpi"><span class="ico" style="background:var(--neg)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span><div class="val num">$640</div><div class="lab">Largest</div></div>
+        </div>
+
+        <div class="seg" style="margin:4px 0 14px;">
+          <button class="on"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Transactions</button>
+          <button><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Overview</button>
+        </div>
+
+        <div class="card" style="overflow:hidden;">
+          <table>
+            <thead><tr><th style="width:44px">#</th><th>Date</th><th>Description</th><th>Bank</th><th class="r">Amount</th><th>Category</th></tr></thead>
+            <tbody>
+              <tr><td class="idx num">1</td><td class="num">29 Oct 2023</td><td class="desc"><b>Shell Fuel Station</b></td><td>Amex</td><td class="r num neg">−$78.40</td><td><span class="chip" style="background:#E3F6EC;color:#1F7A4D">Transport</span></td></tr>
+              <tr><td class="idx num">2</td><td class="num">27 Oct 2023</td><td class="desc"><b>The Smith Restaurant</b></td><td>Amex</td><td class="r num neg">−$184.10</td><td><span class="chip" style="background:#FFEDE2;color:#C2570F">Food</span></td></tr>
+              <tr><td class="idx num">3</td><td class="num">24 Oct 2023</td><td class="desc"><b>Uber Trip — Downtown</b></td><td>Chase</td><td class="r num neg">−$32.75</td><td><span class="chip" style="background:#E3F6EC;color:#1F7A4D">Transport</span></td></tr>
+              <tr><td class="idx num">4</td><td class="num">21 Oct 2023</td><td class="desc"><b>Whole Foods Market</b></td><td>Amex</td><td class="r num neg">−$126.30</td><td><span class="chip" style="background:#FFEDE2;color:#C2570F">Food</span></td></tr>
+              <tr><td class="idx num">5</td><td class="num">18 Oct 2023</td><td class="desc"><b>Delta Air Lines</b></td><td>Chase</td><td class="r num neg">−$640.00</td><td><span class="chip" style="background:#E3F6EC;color:#1F7A4D">Transport</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</div>
+
+<!-- ============ SETTINGS ============ -->
+<div class="label">4 · Settings  <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink-faint)">— Typography card removed; fonts now baked in</span></div>
+<div class="page">
+<div class="window">
+  <div class="chrome">
+    <span class="traffic" style="background:#F6655B"></span>
+    <span class="traffic" style="background:#F6BE3F"></span>
+    <span class="traffic" style="background:#54C04A"></span>
+    <span class="title">Expenses</span>
+  </div>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">
+        <span class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></span>
+        <div><b>Expenses</b><span>PERSONAL FINANCE</span></div>
+      </div>
+      <nav class="nav">
+        <a><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg></span>Summary</a>
+        <a><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></span>Transactions</a>
+        <a><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg></span>Categories</a>
+        <a class="active"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>Settings</a>
+      </nav>
+      <div class="foot">v1.0.0 · SQLite connected</div>
+    </aside>
+
+    <main class="content">
+      <div class="phead">
+        <div class="ttl">
+          <span class="badge"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+          <div><h2>Settings &amp; Customization</h2><div class="sub">Manage data, appearance, and preferences.</div></div>
+        </div>
+      </div>
+
+      <div class="setgrid">
+        <!-- appearance -->
+        <div class="scard">
+          <div class="hd"><span class="si"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg></span><h4>Appearance</h4></div>
+          <div class="flabel first">Interface Theme</div>
+          <div class="modebtns">
+            <div class="modebtn on"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.2" y1="4.2" x2="5.6" y2="5.6"/><line x1="18.4" y1="18.4" x2="19.8" y2="19.8"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.2" y1="19.8" x2="5.6" y2="18.4"/><line x1="18.4" y1="5.6" x2="19.8" y2="4.2"/></svg>Light</div>
+            <div class="modebtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Dark</div>
+            <div class="modebtn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System</div>
+          </div>
+          <div class="flabel">Accent Color</div>
+          <div class="swatches">
+            <span class="sw on" style="background:linear-gradient(135deg,#6260FF,#34E0A1)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="sw" style="background:linear-gradient(135deg,#163300,#9FE870)"></span>
+            <span class="sw" style="background:linear-gradient(135deg,#03363D,#34E0A1)"></span>
+            <span class="sw" style="background:linear-gradient(135deg,#3447AA,#FF6584)"></span>
+            <span class="sw" style="background:linear-gradient(135deg,#141D38,#FCDB32)"></span>
+            <span class="sw" style="background:linear-gradient(135deg,#141414,#34E0A1)"></span>
+          </div>
+          <div class="flabel">Color Intensity</div>
+          <div class="intensity">
+            <button class="on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>Tonal</button>
+            <button><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>Vibrant</button>
+            <button><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>Expressive</button>
+          </div>
+        </div>
+
+        <!-- database + about -->
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <div class="scard">
+            <div class="hd"><span class="si"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></span><h4>Database</h4></div>
+            <div class="flabel first">Database Source</div>
+            <p style="font-size:12.5px;color:var(--ink-soft);margin:-2px 0 14px;">Connect a local SQLite database to power your dashboard with real-time data.</p>
+            <div style="font-size:11px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">SQLite file path</div>
+            <div class="pathfield">
+              <div class="pathbox"><span class="num" style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">~/Documents/finance/expenses.sqlite</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--pos)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+              <button class="btn primary">Browse</button>
+            </div>
+          </div>
+
+          <div class="scard">
+            <div class="hd"><span class="si"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span><h4>About</h4></div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+              <span class="appicon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg></span>
+              <b style="font-size:15px;font-weight:800;">Expenses Dashboard</b>
+              <span class="vchip num">v1.0.0</span>
+            </div>
+            <div class="facts">
+              <div class="fact"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><div><div class="fl">Transactions</div><div class="fv num">8,412</div></div></div>
+              <div class="fact"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg><div><div class="fl">Data source</div><div class="fv">SQLite</div></div></div>
+              <div class="fact"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg><div><div class="fl">Built with</div><div class="fv">Flutter</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</div>
+
+</body>
+</html>

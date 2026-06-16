@@ -504,9 +504,8 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         transform: Matrix4.translationValues(0, hovered ? -2 : 0, 0),
         decoration: brutalBox(
           theme.colorScheme,
-          shadowColor: color,
-          dx: hovered ? 6 : 4,
-          dy: hovered ? 6 : 4,
+          dx: hovered ? 5 : 3,
+          dy: hovered ? 5 : 3,
         ),
         child: Row(
           children: [

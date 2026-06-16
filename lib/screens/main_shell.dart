@@ -138,8 +138,8 @@ class _Sidebar extends ConsumerWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.2,
                                 height: 1.05,
                                 color: cs.primary,
                               ),
@@ -302,14 +302,9 @@ class _NavItem extends StatelessWidget {
               color: selected ? cs.primaryContainer : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: selected
-                    ? cs.primary.withValues(alpha: 0.42)
-                    : Colors.transparent,
-                width: 1,
+                color: selected ? cs.primary : Colors.transparent,
+                width: 1.5,
               ),
-              boxShadow: selected
-                  ? [brutalShadow(cs, color: cs.primary)]
-                  : null,
             ),
             child: collapsed
                 ? Center(child: navIcon)
@@ -325,8 +320,8 @@ class _NavItem extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: selected
-                                ? FontWeight.w800
-                                : FontWeight.w700,
+                                ? FontWeight.w700
+                                : FontWeight.w600,
                             color: fg,
                           ),
                         ),

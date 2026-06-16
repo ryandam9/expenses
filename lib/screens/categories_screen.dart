@@ -589,7 +589,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       width: width,
       child: Container(
         padding: const EdgeInsets.all(13),
-        decoration: brutalBox(theme.colorScheme, shadowColor: color),
+        decoration: brutalBox(theme.colorScheme),
         child: Row(
           children: [
             Container(
@@ -889,7 +889,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             currency2.format(amount),
             110,
             right: true,
-            weight: FontWeight.w800,
+            weight: FontWeight.w700,
             color: isDebit ? cs.error : Colors.green.shade700,
             numeric: true,
           ),

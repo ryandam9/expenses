@@ -47,8 +47,8 @@ class TopBar extends ConsumerWidget {
               Text(
                 labels[selectedIndex],
                 style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.1,
                 ),
               ),
               Text(
@@ -139,7 +139,7 @@ class _CommandPalette extends ConsumerWidget {
         ),
         (
           title: 'Settings',
-          subtitle: 'Change database, theme, typography, and preferences',
+          subtitle: 'Change database, theme, and preferences',
           icon: Icons.tune_rounded,
           index: 3,
         ),
