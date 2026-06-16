@@ -29,3 +29,15 @@ class SidebarCollapsedNotifier extends Notifier<bool> {
 final sidebarCollapsedProvider =
     NotifierProvider<SidebarCollapsedNotifier, bool>(
         SidebarCollapsedNotifier.new);
+
+/// Free-text search shared between the global top-bar search field and the
+/// Transactions screen, so typing in the header drives the table.
+class GlobalSearchNotifier extends Notifier<String> {
+  @override
+  String build() => '';
+
+  void set(String query) => state = query;
+}
+
+final globalSearchProvider =
+    NotifierProvider<GlobalSearchNotifier, String>(GlobalSearchNotifier.new);

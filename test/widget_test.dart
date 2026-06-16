@@ -17,9 +17,11 @@ void main() {
       ),
     );
 
-    // The shell and filter sidebar render immediately, before any data loads.
+    // The shell and the default Summary dashboard render immediately, before
+    // any data loads. (The Transactions filter sidebar lives on an offstage
+    // IndexedStack page, which find.text skips by default.)
     expect(find.text('Expenses'), findsOneWidget);
-    expect(find.text('Filters'), findsOneWidget);
+    expect(find.text('Summary'), findsOneWidget);
   });
 
   testWidgets('collapsing and expanding the sidebar does not overflow',
