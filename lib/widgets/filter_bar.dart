@@ -259,7 +259,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
     ref.listen(dataReloadProvider, (_, _) => _loadOptions());
 
     return Container(
-      width: 288,
+      width: 312,
       decoration: BoxDecoration(
         // A slightly raised tone so the sidebar reads as its own zone instead
         // of blending into the content surface.
@@ -597,8 +597,8 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                 // Category icon in the category's stable accent colour.
                 if (icon != null) ...[
                   SizedBox(
-                    width: 17,
-                    child: FaIcon(icon, size: 12.5, color: dot ?? cs.primary),
+                    width: 20,
+                    child: FaIcon(icon, size: 15, color: dot ?? cs.primary),
                   ),
                   const SizedBox(width: 8),
                 ],
@@ -606,7 +606,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                   child: Text(
                     label,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 14.5,
                       fontWeight: (selected || bold)
                           ? FontWeight.w700
                           : FontWeight.w500,
