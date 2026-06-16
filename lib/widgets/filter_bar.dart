@@ -7,22 +7,71 @@ import '../providers/prefs_provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../providers/theme_provider.dart';
 import '../theme/app_themes.dart';
+import '../theme/brutalism.dart';
 import '../utils/category_icons.dart';
 import '../utils/format.dart';
 
-/// Persistent vertical filter sidebar: period selection (monthly or custom)
-/// plus a multi-select category checklist scoped to the selected period.
-class FilterPanel extends ConsumerStatefulWidget {
-  const FilterPanel({super.key});
+const _monthNames = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
-  @override
-  ConsumerState<FilterPanel> createState() => _FilterPanelState();
+/// Maps an already-applied date range back onto the period controls:
+/// `YYYY-01-01..YYYY-12-31` → that year / whole year, a calendar month's exact
+/// span → that year and month, anything else → custom mode. Returns null when
+/// no period is applied (first launch), in which case the default selection is
+/// applied instead.
+(String, String?, int)? _restoreFromFilter(AppFilter f, List<String> years) {
+  final s = f.startDate;
+  final e = f.endDate;
+  if (s == null || e == null) return null;
+  final year = s.length >= 4 ? s.substring(0, 4) : null;
+  if (year != null && years.contains(year)) {
+    if (s == '$year-01-01' && e == '$year-12-31') {
+      return ('monthly', year, 0);
+    }
+    for (var m = 1; m <= 12; m++) {
+      final mm = m.toString().padLeft(2, '0');
+      if (s == '$year-$mm-01' &&
+          e == '$year-$mm-${_lastDay(int.parse(year), m)}') {
+        return ('monthly', year, m);
+      }
+    }
+  }
+  return ('custom', null, 0);
 }
 
-class _FilterPanelState extends ConsumerState<FilterPanel> {
+String _lastDay(int year, int month) =>
+    DateTime(year, month + 1, 0).day.toString().padLeft(2, '0');
+
+// ===========================================================================
+// Period bar — a horizontal date-range control across the top of the screen.
+// ===========================================================================
+
+/// Horizontal period selector: a Monthly/Custom toggle plus either year/month
+/// dropdowns or a custom date-range picker. Drives [filterProvider]'s period;
+/// the [FilterPanel] sidebar reloads its category list whenever the period
+/// changes.
+class PeriodBar extends ConsumerStatefulWidget {
+  const PeriodBar({super.key});
+
+  @override
+  ConsumerState<PeriodBar> createState() => _PeriodBarState();
+}
+
+class _PeriodBarState extends ConsumerState<PeriodBar> {
   final _db = DatabaseService();
 
-  List<String> _categories = [];
   List<String> _years = [];
   // Months (1-12) that actually have data in the selected year, so the
   // dropdown doesn't offer empty months.
@@ -33,21 +82,6 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
   String? _selYear;
   int _selMonth = 0; // 0 = whole year
 
-  static const _monthNames = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -57,7 +91,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
   Future<void> _loadOptions() async {
     try {
       final years = await _db.getYears();
-      // If a period is already applied (the panel was remounted, e.g. after
+      // If a period is already applied (the bar was remounted, e.g. after
       // visiting another screen), restore the controls from it instead of
       // resetting the user's selection.
       final existing = ref.read(filterProvider);
@@ -74,9 +108,6 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
           _selYear = year;
           _selMonth = month;
         });
-        // The filter itself is untouched, so the change listener won't fire;
-        // refresh the category list for the period explicitly.
-        _loadPeriodCategories(existing);
         return;
       }
       final first = years.isNotEmpty ? years.first : null;
@@ -89,11 +120,10 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
         _selYear = first;
         _selMonth = 0;
       });
-      // Apply the default selection so the dropdowns and the data agree —
-      // previously the year showed as selected without being applied.
+      // Apply the default selection so the dropdowns and the data agree.
       _applyMonthly();
     } catch (e) {
-      debugPrint('FilterPanel: failed to load filter options: $e');
+      debugPrint('PeriodBar: failed to load periods: $e');
       if (!mounted) return;
       setState(
         () => _error = e is DatabaseNotConfiguredException
@@ -101,66 +131,12 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
             : 'Could not read the database.',
       );
     }
-  }
-
-  /// Maps an already-applied date range back onto the panel's controls:
-  /// `YYYY-01-01..YYYY-12-31` → that year / whole year, a calendar month's
-  /// exact span → that year and month, anything else → custom mode. Returns
-  /// null when no period is applied (first launch), in which case the default
-  /// selection is applied instead.
-  (String, String?, int)? _restoreFromFilter(AppFilter f, List<String> years) {
-    final s = f.startDate;
-    final e = f.endDate;
-    if (s == null || e == null) return null;
-    final year = s.length >= 4 ? s.substring(0, 4) : null;
-    if (year != null && years.contains(year)) {
-      if (s == '$year-01-01' && e == '$year-12-31') {
-        return ('monthly', year, 0);
-      }
-      for (var m = 1; m <= 12; m++) {
-        final mm = m.toString().padLeft(2, '0');
-        if (s == '$year-$mm-01' &&
-            e == '$year-$mm-${_lastDay(int.parse(year), m)}') {
-          return ('monthly', year, m);
-        }
-      }
-    }
-    return ('custom', null, 0);
   }
 
   Future<List<int>> _monthsForYear(String year) async {
     final mos = await _db.getMonthsForYear(year);
     return mos.map(int.parse).where((m) => m >= 1 && m <= 12).toList();
   }
-
-  Future<void> _loadPeriodCategories(AppFilter f) async {
-    try {
-      final cats = await _db.getCategoriesForPeriod(filter: f);
-      if (!mounted) return;
-      setState(() {
-        _error = null;
-        _categories = cats;
-      });
-      // Drop any explicit selections that no longer exist in this period.
-      if (!f.allCategories && f.categories.isNotEmpty) {
-        final pruned = f.categories.where(cats.contains).toList();
-        if (pruned.length != f.categories.length) {
-          ref.read(filterProvider.notifier).setCategories(pruned, cats);
-        }
-      }
-    } catch (e) {
-      debugPrint('FilterPanel: failed to load categories: $e');
-      if (!mounted) return;
-      setState(
-        () => _error = e is DatabaseNotConfiguredException
-            ? 'No data source configured yet.'
-            : 'Could not read the database.',
-      );
-    }
-  }
-
-  String _lastDay(int year, int month) =>
-      DateTime(year, month + 1, 0).day.toString().padLeft(2, '0');
 
   void _applyMonthly() {
     final year = _selYear;
@@ -182,7 +158,7 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
     try {
       months = await _monthsForYear(year);
     } catch (e) {
-      debugPrint('FilterPanel: failed to load months for $year: $e');
+      debugPrint('PeriodBar: failed to load months for $year: $e');
     }
     if (!mounted) return;
     setState(() {
@@ -223,7 +199,230 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  /// Small-caps sidebar section label ("PERIOD", "CATEGORIES").
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final filter = ref.watch(filterProvider);
+
+    // Refresh the year options when the data source changes.
+    ref.listen(dataReloadProvider, (_, _) => _loadOptions());
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest.withValues(alpha: 0.92),
+        border: Border(bottom: BorderSide(color: brutalLine(cs), width: 1)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              'DATE RANGE',
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontSize: 10,
+                letterSpacing: 0.4,
+                fontWeight: FontWeight.w800,
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(
+                      value: 'monthly',
+                      label: Text('Monthly'),
+                      icon: Icon(Icons.calendar_view_month, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: 'custom',
+                      label: Text('Custom'),
+                      icon: Icon(Icons.date_range, size: 16),
+                    ),
+                  ],
+                  selected: {_mode},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (s) => setState(() => _mode = s.first),
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    textStyle: WidgetStateProperty.all(
+                      const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_mode == 'monthly') ...[
+                  SizedBox(
+                    width: 132,
+                    child: DropdownMenu<String>(
+                      // DropdownMenu only reads initialSelection once, so re-key
+                      // it when the selection changes programmatically.
+                      key: ValueKey('year-$_selYear'),
+                      initialSelection: _selYear,
+                      enableSearch: false,
+                      expandedInsets: EdgeInsets.zero,
+                      label: const Text('Year'),
+                      leadingIcon: const Icon(Icons.event, size: 18),
+                      dropdownMenuEntries: _years
+                          .map((y) => DropdownMenuEntry(value: y, label: y))
+                          .toList(),
+                      onSelected: (v) {
+                        if (v != null) _selectYear(v);
+                      },
+                    ),
+                  ),
+                  SizedBox(
+                    width: 168,
+                    child: DropdownMenu<int>(
+                      key: ValueKey('month-$_selMonth-${_months.join(',')}'),
+                      initialSelection: _selMonth,
+                      enableSearch: false,
+                      expandedInsets: EdgeInsets.zero,
+                      label: const Text('Month'),
+                      leadingIcon: const Icon(Icons.calendar_month, size: 18),
+                      dropdownMenuEntries: [
+                        const DropdownMenuEntry(value: 0, label: 'Whole year'),
+                        for (final m in _months)
+                          DropdownMenuEntry(
+                            value: m,
+                            label: _monthNames[m - 1],
+                          ),
+                      ],
+                      onSelected: (v) {
+                        if (v != null) {
+                          setState(() => _selMonth = v);
+                          _applyMonthly();
+                        }
+                      },
+                    ),
+                  ),
+                ] else
+                  _buildCustom(theme, filter),
+                if (_error != null)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.info_outline, size: 15, color: cs.error),
+                      const SizedBox(width: 6),
+                      Text(
+                        _error!,
+                        style: TextStyle(fontSize: 11.5, color: cs.error),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustom(ThemeData theme, AppFilter filter) {
+    final cs = theme.colorScheme;
+    final hasRange = filter.hasPeriod;
+    final label = hasRange
+        ? '${filter.startDate ?? '…'}  →  ${filter.endDate ?? '…'}'
+        : 'Select date range';
+    return InkWell(
+      onTap: () => _pickRange(context),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        constraints: const BoxConstraints(minWidth: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: cs.primary, width: 2),
+          borderRadius: BorderRadius.circular(8),
+          color: hasRange ? cs.primaryContainer : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.date_range,
+              size: 18,
+              color: hasRange ? cs.onPrimaryContainer : cs.onSurface,
+            ),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: hasRange ? cs.onPrimaryContainer : cs.onSurface,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ===========================================================================
+// Filter panel — the vertical sidebar holding the category checklist.
+// ===========================================================================
+
+/// Persistent vertical sidebar: a multi-select category checklist scoped to the
+/// period currently selected in the [PeriodBar].
+class FilterPanel extends ConsumerStatefulWidget {
+  const FilterPanel({super.key});
+
+  @override
+  ConsumerState<FilterPanel> createState() => _FilterPanelState();
+}
+
+class _FilterPanelState extends ConsumerState<FilterPanel> {
+  final _db = DatabaseService();
+
+  List<String> _categories = [];
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCategories(ref.read(filterProvider));
+  }
+
+  Future<void> _loadCategories(AppFilter f) async {
+    try {
+      final cats = await _db.getCategoriesForPeriod(filter: f);
+      if (!mounted) return;
+      setState(() {
+        _error = null;
+        _categories = cats;
+      });
+      // Drop any explicit selections that no longer exist in this period.
+      if (!f.allCategories && f.categories.isNotEmpty) {
+        final pruned = f.categories.where(cats.contains).toList();
+        if (pruned.length != f.categories.length) {
+          ref.read(filterProvider.notifier).setCategories(pruned, cats);
+        }
+      }
+    } catch (e) {
+      debugPrint('FilterPanel: failed to load categories: $e');
+      if (!mounted) return;
+      setState(
+        () => _error = e is DatabaseNotConfiguredException
+            ? 'No data source configured yet.'
+            : 'Could not read the database.',
+      );
+    }
+  }
+
+  /// Small-caps sidebar section label ("CATEGORIES").
   Widget _sectionLabel(ThemeData theme, String text) => Text(
     text.toUpperCase(),
     style: theme.textTheme.labelSmall?.copyWith(
@@ -234,8 +433,8 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
     ),
   );
 
-  /// Stable per-category accent drawn from the theme's chart palette, using
-  /// the same name hash as the table's category pills so a category keeps one
+  /// Stable per-category accent drawn from the theme's chart palette, using the
+  /// same name hash as the table's category pills so a category keeps one
   /// colour everywhere in the app.
   Color _categoryColor(String category) {
     final palette = appThemes[ref.read(themeIndexProvider)].palette;
@@ -250,16 +449,20 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
     final cs = theme.colorScheme;
     final filter = ref.watch(filterProvider);
 
+    // Reload the category list whenever the selected period changes.
     ref.listen(filterProvider, (prev, next) {
       if (prev?.startDate != next.startDate || prev?.endDate != next.endDate) {
-        _loadPeriodCategories(next);
+        _loadCategories(next);
       }
     });
-    // Refresh the year/category options when the data source changes.
-    ref.listen(dataReloadProvider, (_, _) => _loadOptions());
+    // Refresh the category options when the data source changes.
+    ref.listen(
+      dataReloadProvider,
+      (_, _) => _loadCategories(ref.read(filterProvider)),
+    );
 
     return Container(
-      width: 312,
+      width: 288,
       decoration: BoxDecoration(
         // A slightly raised tone so the sidebar reads as its own zone instead
         // of blending into the content surface.
@@ -279,25 +482,24 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                     color: cs.primary.withValues(alpha: 0.13),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.tune, size: 15, color: cs.primary),
+                  child: Icon(
+                    Icons.category_rounded,
+                    size: 15,
+                    color: cs.primary,
+                  ),
                 ),
                 const SizedBox(width: 9),
                 Text(
-                  'Filters',
+                  'Categories',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const Spacer(),
-                if (filter.hasAnyFilter)
+                if (!filter.allCategories)
                   TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        _selYear = null;
-                        _selMonth = 0;
-                      });
-                      ref.read(filterProvider.notifier).clearAll();
-                    },
+                    onPressed: () =>
+                        ref.read(filterProvider.notifier).selectAllCategories(),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       minimumSize: const Size(0, 32),
@@ -333,44 +535,6 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
               ),
             ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 0, 16, 7),
-            child: _sectionLabel(theme, 'Period'),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(
-                  value: 'monthly',
-                  label: Text('Monthly'),
-                  icon: Icon(Icons.calendar_view_month, size: 16),
-                ),
-                ButtonSegment(
-                  value: 'custom',
-                  label: Text('Custom'),
-                  icon: Icon(Icons.date_range, size: 16),
-                ),
-              ],
-              selected: {_mode},
-              showSelectedIcon: false,
-              onSelectionChanged: (s) => setState(() => _mode = s.first),
-              style: ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                textStyle: WidgetStateProperty.all(
-                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _mode == 'monthly'
-                ? _buildMonthly(theme)
-                : _buildCustom(theme, filter),
-          ),
-          const SizedBox(height: 18),
-          Padding(
             padding: const EdgeInsets.fromLTRB(18, 0, 16, 0),
             child: Row(
               children: [
@@ -399,92 +563,6 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
           const SizedBox(height: 4),
           Expanded(child: _buildCategoryList(theme, filter)),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMonthly(ThemeData theme) {
-    return Column(
-      children: [
-        DropdownMenu<String>(
-          // DropdownMenu only reads initialSelection once, so re-key it when
-          // the selection is changed programmatically (e.g. Reset).
-          key: ValueKey('year-$_selYear'),
-          initialSelection: _selYear,
-          enableSearch: false,
-          expandedInsets: EdgeInsets.zero,
-          label: const Text('Year'),
-          leadingIcon: const Icon(Icons.event, size: 18),
-          dropdownMenuEntries: _years
-              .map((y) => DropdownMenuEntry(value: y, label: y))
-              .toList(),
-          onSelected: (v) {
-            if (v != null) _selectYear(v);
-          },
-        ),
-        const SizedBox(height: 10),
-        DropdownMenu<int>(
-          key: ValueKey('month-$_selMonth-${_months.join(',')}'),
-          initialSelection: _selMonth,
-          enableSearch: false,
-          expandedInsets: EdgeInsets.zero,
-          label: const Text('Month'),
-          leadingIcon: const Icon(Icons.calendar_month, size: 18),
-          dropdownMenuEntries: [
-            const DropdownMenuEntry(value: 0, label: 'Whole year'),
-            // Only months that actually have transactions in the year.
-            for (final m in _months)
-              DropdownMenuEntry(value: m, label: _monthNames[m - 1]),
-          ],
-          onSelected: (v) {
-            if (v != null) {
-              setState(() => _selMonth = v);
-              _applyMonthly();
-            }
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCustom(ThemeData theme, AppFilter filter) {
-    final cs = theme.colorScheme;
-    final hasRange = filter.hasPeriod;
-    final label = hasRange
-        ? '${filter.startDate ?? '…'}  →  ${filter.endDate ?? '…'}'
-        : 'Select date range';
-    return InkWell(
-      onTap: () => _pickRange(context),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        decoration: BoxDecoration(
-          border: Border.all(color: cs.primary, width: 2),
-          borderRadius: BorderRadius.circular(8),
-          color: hasRange ? cs.primaryContainer : null,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.date_range,
-              size: 18,
-              color: hasRange ? cs.onPrimaryContainer : cs.onSurface,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: hasRange ? cs.onPrimaryContainer : cs.onSurface,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

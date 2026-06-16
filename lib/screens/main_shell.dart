@@ -6,6 +6,7 @@ import 'transactions_screen.dart';
 import 'settings_screen.dart';
 import '../providers/nav_provider.dart';
 import '../providers/theme_provider.dart';
+import '../theme/app_themes.dart';
 import '../theme/app_ui.dart';
 import '../theme/brutalism.dart';
 import '../widgets/top_bar.dart';
@@ -60,151 +61,164 @@ class _Sidebar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     final selectedIndex = ref.watch(navIndexProvider);
     final collapsed = ref.watch(sidebarCollapsedProvider);
     final width = collapsed ? 72.0 : 212.0;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-      width: width,
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerLowest,
-        border: Border(right: BorderSide(color: brutalLine(cs), width: 1)),
-        boxShadow: [
-          BoxShadow(
-            color: cs.shadow.withValues(alpha: 0.08),
-            blurRadius: 24,
-            offset: const Offset(8, 0),
-          ),
-        ],
-      ),
-      // While the width animates between the two sizes, lay the content out at
-      // its *target* width and clip to the animating width. Otherwise the rows
-      // would be measured against an intermediate width too narrow for their
-      // fixed parts (logo + gap, icon + label) and overflow on every frame.
-      child: ClipRect(
-        child: OverflowBox(
-          alignment: Alignment.topLeft,
-          minWidth: width,
-          maxWidth: width,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ------------------------------------------------------- brand
-              Padding(
-                padding: collapsed
-                    ? const EdgeInsets.fromLTRB(0, 20, 0, 22)
-                    : const EdgeInsets.fromLTRB(16, 20, 16, 22),
-                child: Row(
-                  mainAxisAlignment: collapsed
-                      ? MainAxisAlignment.center
-                      : MainAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [cs.primary, cs.tertiary],
-                        ),
-                        borderRadius: BorderRadius.circular(13),
-                        boxShadow: [
-                          BoxShadow(
-                            color: cs.primary.withValues(alpha: 0.35),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+    // The navigation rail is always dark (a deep slate), independent of the
+    // app's light/dark mode, for an "institutional" look. Resolving the rail's
+    // own dark [ThemeData] from the active accent — and wrapping the rail in it
+    // — keeps every descendant (labels, nav pills, toggles) legible on dark
+    // without hardcoding a single foreground colour.
+    final railTheme = appThemes[ref.watch(themeIndexProvider)].themeData(
+      Brightness.dark,
+      variant: ref.watch(schemeVariantProvider),
+    );
+    final theme = railTheme;
+    final cs = railTheme.colorScheme;
+
+    return Theme(
+      data: railTheme,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        width: width,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLowest,
+          border: Border(right: BorderSide(color: brutalLine(cs), width: 1)),
+          boxShadow: [
+            BoxShadow(
+              color: cs.shadow.withValues(alpha: 0.08),
+              blurRadius: 24,
+              offset: const Offset(8, 0),
+            ),
+          ],
+        ),
+        // While the width animates between the two sizes, lay the content out at
+        // its *target* width and clip to the animating width. Otherwise the rows
+        // would be measured against an intermediate width too narrow for their
+        // fixed parts (logo + gap, icon + label) and overflow on every frame.
+        child: ClipRect(
+          child: OverflowBox(
+            alignment: Alignment.topLeft,
+            minWidth: width,
+            maxWidth: width,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ------------------------------------------------------- brand
+                Padding(
+                  padding: collapsed
+                      ? const EdgeInsets.fromLTRB(0, 20, 0, 22)
+                      : const EdgeInsets.fromLTRB(16, 20, 16, 22),
+                  child: Row(
+                    mainAxisAlignment: collapsed
+                        ? MainAxisAlignment.center
+                        : MainAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [cs.primary, cs.tertiary],
                           ),
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.account_balance_wallet_rounded,
-                        size: 20,
-                        color: cs.onPrimary,
-                      ),
-                    ),
-                    if (!collapsed) ...[
-                      const SizedBox(width: 11),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Expenses',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: -0.2,
-                                height: 1.05,
-                                color: cs.primary,
-                              ),
-                            ),
-                            Text(
-                              'Financial Control',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w600,
-                                color: cs.onSurfaceVariant,
-                              ),
+                          borderRadius: BorderRadius.circular(13),
+                          boxShadow: [
+                            BoxShadow(
+                              color: cs.primary.withValues(alpha: 0.35),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
+                        child: Icon(
+                          Icons.account_balance_wallet_rounded,
+                          size: 20,
+                          color: cs.onPrimary,
+                        ),
                       ),
+                      if (!collapsed) ...[
+                        const SizedBox(width: 11),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Expenses',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.2,
+                                  height: 1.05,
+                                  color: cs.primary,
+                                ),
+                              ),
+                              Text(
+                                'Financial Control',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              // -------------------------------------------------- navigation
-              _NavItem(
-                icon: Icons.dashboard_outlined,
-                selectedIcon: Icons.dashboard_rounded,
-                label: 'Dashboard',
-                selected: selectedIndex == 0,
-                collapsed: collapsed,
-                onTap: () => ref.read(navIndexProvider.notifier).select(0),
-              ),
-              _NavItem(
-                icon: Icons.receipt_long_outlined,
-                selectedIcon: Icons.receipt_long_rounded,
-                label: 'Transactions',
-                selected: selectedIndex == 1,
-                collapsed: collapsed,
-                onTap: () => ref.read(navIndexProvider.notifier).select(1),
-              ),
-              _NavItem(
-                icon: Icons.category_outlined,
-                selectedIcon: Icons.category_rounded,
-                label: 'Categories',
-                selected: selectedIndex == 2,
-                collapsed: collapsed,
-                onTap: () => ref.read(navIndexProvider.notifier).select(2),
-              ),
-              _NavItem(
-                icon: Icons.settings_outlined,
-                selectedIcon: Icons.settings_rounded,
-                label: 'Settings',
-                selected: selectedIndex == 3,
-                collapsed: collapsed,
-                onTap: () => ref.read(navIndexProvider.notifier).select(3),
-              ),
-              const Spacer(),
-              // ------------------------------------------------------ footer
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: _CollapseToggle(collapsed: collapsed),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                child: _ThemeModeToggle(collapsed: collapsed),
-              ),
-            ],
+                // -------------------------------------------------- navigation
+                _NavItem(
+                  icon: Icons.dashboard_outlined,
+                  selectedIcon: Icons.dashboard_rounded,
+                  label: 'Dashboard',
+                  selected: selectedIndex == 0,
+                  collapsed: collapsed,
+                  onTap: () => ref.read(navIndexProvider.notifier).select(0),
+                ),
+                _NavItem(
+                  icon: Icons.receipt_long_outlined,
+                  selectedIcon: Icons.receipt_long_rounded,
+                  label: 'Transactions',
+                  selected: selectedIndex == 1,
+                  collapsed: collapsed,
+                  onTap: () => ref.read(navIndexProvider.notifier).select(1),
+                ),
+                _NavItem(
+                  icon: Icons.category_outlined,
+                  selectedIcon: Icons.category_rounded,
+                  label: 'Categories',
+                  selected: selectedIndex == 2,
+                  collapsed: collapsed,
+                  onTap: () => ref.read(navIndexProvider.notifier).select(2),
+                ),
+                _NavItem(
+                  icon: Icons.settings_outlined,
+                  selectedIcon: Icons.settings_rounded,
+                  label: 'Settings',
+                  selected: selectedIndex == 3,
+                  collapsed: collapsed,
+                  onTap: () => ref.read(navIndexProvider.notifier).select(3),
+                ),
+                const Spacer(),
+                // ------------------------------------------------------ footer
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: _CollapseToggle(collapsed: collapsed),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: _ThemeModeToggle(collapsed: collapsed),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -152,6 +152,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
             child: Column(
               children: [
                 _buildHeader(theme, async),
+                const PeriodBar(),
                 Expanded(child: _buildBody(theme, async)),
               ],
             ),

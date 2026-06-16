@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../theme/app_themes.dart';
 import '../services/database_service.dart';
 import '../providers/dashboard_provider.dart';
-import '../providers/theme_provider.dart';
 import '../providers/prefs_provider.dart';
 import '../theme/app_ui.dart';
 import '../theme/brutalism.dart';
@@ -27,7 +25,7 @@ class SettingsScreen extends ConsumerWidget {
           const AppPageHeader(
             icon: Icons.tune_rounded,
             title: 'Settings & Customization',
-            subtitle: 'Manage data, appearance, and preferences.',
+            subtitle: 'Manage your data source and preferences.',
           ),
           Expanded(
             child: Center(
@@ -39,11 +37,6 @@ class SettingsScreen extends ConsumerWidget {
                     builder: (context, c) {
                       // Two columns on wide windows, single column when narrow.
                       final twoCol = c.maxWidth >= 720;
-                      const appearance = _Section(
-                        icon: Icons.palette_outlined,
-                        title: 'APPEARANCE',
-                        child: _AppearanceControls(),
-                      );
                       const database = _Section(
                         icon: Icons.storage_rounded,
                         title: 'DATABASE',
@@ -57,29 +50,15 @@ class SettingsScreen extends ConsumerWidget {
 
                       if (!twoCol) {
                         return const Column(
-                          children: [
-                            appearance,
-                            SizedBox(height: 18),
-                            database,
-                            SizedBox(height: 18),
-                            about,
-                          ],
+                          children: [database, SizedBox(height: 18), about],
                         );
                       }
                       return const Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(child: appearance),
+                          Expanded(child: database),
                           SizedBox(width: 18),
-                          Expanded(
-                            child: Column(
-                              children: [
-                                database,
-                                SizedBox(height: 18),
-                                about,
-                              ],
-                            ),
-                          ),
+                          Expanded(child: about),
                         ],
                       );
                     },
@@ -156,246 +135,6 @@ Widget _fieldLabel(ThemeData theme, String text, {double bottom = 10}) =>
         ),
       ),
     );
-
-// -------------------------------------------------------------- appearance
-class _AppearanceControls extends ConsumerWidget {
-  const _AppearanceControls();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _fieldLabel(theme, 'Interface Theme'),
-        const _ThemeModeButtons(),
-        const SizedBox(height: 24),
-        _fieldLabel(theme, 'Accent Color'),
-        const _AccentSwatches(),
-        const SizedBox(height: 24),
-        _fieldLabel(theme, 'Color Intensity'),
-        const _VariantSelector(),
-      ],
-    );
-  }
-}
-
-// ----------------------------------------------------------- theme mode
-/// Light / Dark / System as three side-by-side buttons, the active one tinted
-/// and outlined in the primary colour.
-class _ThemeModeButtons extends ConsumerWidget {
-  const _ThemeModeButtons();
-
-  static const _modes = <(ThemeMode, String, IconData)>[
-    (ThemeMode.light, 'Light', Icons.light_mode_outlined),
-    (ThemeMode.dark, 'Dark', Icons.dark_mode_outlined),
-    (ThemeMode.system, 'System', Icons.desktop_windows_outlined),
-  ];
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(themeModeProvider);
-    return Row(
-      children: [
-        for (final m in _modes) ...[
-          Expanded(
-            child: _ModeButton(
-              label: m.$2,
-              icon: m.$3,
-              selected: mode == m.$1,
-              onTap: () => ref.read(themeModeProvider.notifier).select(m.$1),
-            ),
-          ),
-          if (m != _modes.last) const SizedBox(width: 10),
-        ],
-      ],
-    );
-  }
-}
-
-class _ModeButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ModeButton({
-    required this.label,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: selected
-                ? cs.primary.withValues(alpha: 0.10)
-                : cs.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: selected ? cs.primary : cs.outlineVariant,
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: selected ? cs.primary : cs.onSurfaceVariant,
-              ),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                    color: selected ? cs.primary : cs.onSurface,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ----------------------------------------------------------- accent swatches
-/// The accent palette as a row of circular colour swatches; the active theme
-/// is ringed and ticked, mirroring the mockup.
-class _AccentSwatches extends ConsumerWidget {
-  const _AccentSwatches();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selectedIndex = ref.watch(themeIndexProvider);
-    return Wrap(
-      spacing: 14,
-      runSpacing: 14,
-      children: [
-        for (var i = 0; i < appThemes.length; i++)
-          _Swatch(
-            appTheme: appThemes[i],
-            selected: i == selectedIndex,
-            onTap: () => ref.read(themeIndexProvider.notifier).select(i),
-          ),
-      ],
-    );
-  }
-}
-
-class _Swatch extends StatelessWidget {
-  final AppTheme appTheme;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _Swatch({
-    required this.appTheme,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: appTheme.name,
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: selected ? appTheme.primary : Colors.transparent,
-              width: 2.5,
-            ),
-          ),
-          child: Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [appTheme.primary, appTheme.secondary],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: appTheme.primary.withValues(alpha: 0.35),
-                  blurRadius: selected ? 10 : 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: selected
-                ? const Icon(Icons.check, size: 16, color: Colors.white)
-                : null,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// -------------------------------------------------------------- scheme variant
-/// How strongly the seed colours are expressed in the derived scheme
-/// (ColorScheme.fromSeed's dynamicSchemeVariant).
-class _VariantSelector extends ConsumerWidget {
-  const _VariantSelector();
-
-  static const _labels = <DynamicSchemeVariant, (String, IconData)>{
-    DynamicSchemeVariant.tonalSpot: ('Tonal', Icons.blur_circular),
-    DynamicSchemeVariant.vibrant: ('Vibrant', Icons.water_drop_outlined),
-    DynamicSchemeVariant.expressive: ('Expressive', Icons.brush_outlined),
-  };
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final variant = ref.watch(schemeVariantProvider);
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: SegmentedButton<DynamicSchemeVariant>(
-        segments: [
-          for (final v in schemeVariants)
-            ButtonSegment(
-              value: v,
-              label: Text(_labels[v]!.$1),
-              icon: Icon(_labels[v]!.$2, size: 18),
-            ),
-        ],
-        selected: {variant},
-        showSelectedIcon: false,
-        style: ButtonStyle(
-          visualDensity: VisualDensity.compact,
-          textStyle: WidgetStateProperty.all(
-            const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-          ),
-        ),
-        onSelectionChanged: (s) =>
-            ref.read(schemeVariantProvider.notifier).select(s.first),
-      ),
-    );
-  }
-}
 
 // -------------------------------------------------------------- data source
 class _DataSourceControls extends ConsumerWidget {
