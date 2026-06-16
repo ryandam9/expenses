@@ -83,7 +83,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     final state = ref.watch(categoryExplorerProvider);
 
     return Container(
-      width: 288,
+      width: 312,
       decoration: BoxDecoration(
         // Match the Transactions filter sidebar exactly (same surface tone and
         // border) so the two category panels read as one consistent component.
@@ -253,44 +253,32 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                 ),
                 const SizedBox(width: 12),
                 SizedBox(
-                  width: 17,
+                  width: 20,
                   child: FaIcon(
                     categoryIcon(s.category),
-                    size: 12.5,
+                    size: 15,
                     color: accent,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        prettyCategory(s.category),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: selected ? cs.primary : cs.onSurface,
-                        ),
-                      ),
-                      Text(
-                        '${s.count} transaction${s.count == 1 ? '' : 's'}',
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          fontSize: 9.5,
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    '${prettyCategory(s.category)} (${s.count})',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: selected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: selected ? cs.primary : cs.onSurface,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   compactMoney(s.total),
-                  style: tableNumberStyle(theme, fontSize: 12),
+                  style: tableNumberStyle(theme, fontSize: 13),
                 ),
               ],
             ),
