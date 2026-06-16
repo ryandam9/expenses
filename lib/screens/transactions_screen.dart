@@ -900,12 +900,13 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                         style: isAmount
                             ? tableNumberStyle(
                                 theme,
+                                fontSize: 14.5,
                                 color: isDebit
                                     ? theme.colorScheme.error
                                     : Colors.green.shade700,
                               )
                             : TextStyle(
-                                fontSize: 12.5,
+                                fontSize: 14.5,
                                 height: isDescription ? 1.35 : null,
                                 fontWeight: FontWeight.w500,
                                 color: theme.colorScheme.onSurface,
