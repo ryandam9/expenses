@@ -36,12 +36,13 @@ class _AnimatedCategoryIconState extends State<AnimatedCategoryIcon>
     value: 1,
   );
 
-  // Several full turns about the Y axis, spinning down over the whole duration
-  // and ending back at the front (an integer × 2π ≡ 0).
+  // Several full turns about the Y axis, ending back at the front (an integer ×
+  // 2π ≡ 0). easeOutSine holds a steadier spin speed through the middle and
+  // eases off only near the end, instead of braking hard early.
   late final Animation<double> _flip = Tween<double>(
     begin: 0,
     end: 5 * 2 * math.pi,
-  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutSine));
 
   // A quick spring-up-and-settle compressed into the first ~0.6s, then hold at
   // rest size while the icon keeps spinning, so the pop stays snappy.
