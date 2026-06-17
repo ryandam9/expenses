@@ -3,7 +3,6 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/expense.dart';
 import '../providers/category_explorer_provider.dart';
@@ -14,6 +13,7 @@ import '../theme/brutalism.dart';
 import '../theme/typography.dart';
 import '../utils/category_icons.dart';
 import '../utils/format.dart';
+import '../widgets/animated_category_icon.dart';
 import '../widgets/category_pill.dart';
 import '../widgets/overview_charts.dart';
 import '../widgets/transactions_bar_chart.dart';
@@ -258,10 +258,12 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                 const SizedBox(width: 12),
                 SizedBox(
                   width: 20,
-                  child: FaIcon(
-                    categoryIcon(s.category),
+                  child: AnimatedCategoryIcon(
+                    key: ValueKey(s.category),
+                    icon: categoryIcon(s.category),
                     size: 15,
                     color: accent,
+                    selected: selected,
                   ),
                 ),
                 const SizedBox(width: 8),

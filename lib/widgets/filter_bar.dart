@@ -10,6 +10,7 @@ import '../theme/app_themes.dart';
 import '../theme/typography.dart';
 import '../utils/category_icons.dart';
 import '../utils/format.dart';
+import 'animated_category_icon.dart';
 
 /// Persistent vertical filter sidebar: period selection (monthly or custom)
 /// plus a multi-select category checklist scoped to the selected period.
@@ -595,11 +596,18 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                             : null),
                 ),
                 const SizedBox(width: 12),
-                // Category icon in the category's stable accent colour.
+                // Category icon in the category's stable accent colour, with a
+                // springy pop the moment the category is selected.
                 if (icon != null) ...[
                   SizedBox(
                     width: 20,
-                    child: FaIcon(icon, size: 15, color: dot ?? cs.primary),
+                    child: AnimatedCategoryIcon(
+                      key: ValueKey(label),
+                      icon: icon,
+                      size: 15,
+                      color: dot ?? cs.primary,
+                      selected: selected,
+                    ),
                   ),
                   const SizedBox(width: 8),
                 ],
