@@ -108,13 +108,11 @@ Future<Uint8List> buildExpensesPdf({
       header: (ctx) => ctx.pageNumber == 1 ? pw.SizedBox() : _runningHeader(),
       footer: _footer,
       build: (ctx) => [
-        _titleBlock(periodLabel, grandTotal, rows.length, cats.length),
+        _titleBlock(periodLabel, grandTotal),
         pw.SizedBox(height: 20),
         if (cats.isNotEmpty) ...[
           _sectionHeading('Spending by Category'),
           pw.SizedBox(height: 12),
-          _compositionBar(cats, grandTotal),
-          pw.SizedBox(height: 18),
           _categoryBars(cats, grandTotal),
           pw.SizedBox(height: 18),
           _categoryTable(cats, grandTotal),
@@ -131,8 +129,7 @@ Future<Uint8List> buildExpensesPdf({
 }
 
 // ------------------------------------------------------------------- heading
-pw.Widget _titleBlock(String period, double total, int txns, int catCount) {
-  final generated = DateFormat('d MMM yyyy · HH:mm').format(DateTime.now());
+pw.Widget _titleBlock(String period, double total) {
   return pw.Container(
     padding: const pw.EdgeInsets.all(18),
     decoration: const pw.BoxDecoration(
@@ -155,7 +152,7 @@ pw.Widget _titleBlock(String period, double total, int txns, int catCount) {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'EXPENSES REPORT',
+                      'Expenses',
                       style: pw.TextStyle(
                         color: PdfColors.white,
                         fontSize: 22,
@@ -197,16 +194,6 @@ pw.Widget _titleBlock(String period, double total, int txns, int catCount) {
             ),
           ],
         ),
-        pw.SizedBox(height: 14),
-        pw.Row(
-          children: [
-            _metaChip('$txns transactions'),
-            pw.SizedBox(width: 8),
-            _metaChip('$catCount categories'),
-            pw.SizedBox(width: 8),
-            _metaChip('Generated $generated'),
-          ],
-        ),
       ],
     ),
   );
@@ -232,18 +219,6 @@ pw.Widget _moneyBadge() => pw.Container(
   ),
 );
 
-pw.Widget _metaChip(String text) => pw.Container(
-  padding: const pw.EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-  decoration: pw.BoxDecoration(
-    color: const PdfColor.fromInt(0x33FFFFFF),
-    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(20)),
-  ),
-  child: pw.Text(
-    text,
-    style: const pw.TextStyle(color: PdfColors.white, fontSize: 8.5),
-  ),
-);
-
 pw.Widget _sectionHeading(String title) => pw.Row(
   crossAxisAlignment: pw.CrossAxisAlignment.center,
   children: [
@@ -259,64 +234,6 @@ pw.Widget _sectionHeading(String title) => pw.Row(
     ),
   ],
 );
-
-// A single rounded bar split into one segment per category (top six, with any
-// remainder folded into a neutral "Other") — the report's headline diagram.
-pw.Widget _compositionBar(List<_CatAgg> cats, double total) {
-  if (total <= 0) return pw.SizedBox();
-  const maxSeg = 6;
-  final shown = cats.take(maxSeg).toList();
-  final segments = <(String, double, PdfColor)>[
-    for (final c in shown) (prettyCategory(c.name), c.total, _colorFor(c.name)),
-  ];
-  if (cats.length > maxSeg) {
-    final rest = cats.skip(maxSeg).fold<double>(0, (s, c) => s + c.total);
-    if (rest > 0) {
-      segments.add(('Other', rest, const PdfColor.fromInt(0xFF9CA3AF)));
-    }
-  }
-
-  return pw.Column(
-    crossAxisAlignment: pw.CrossAxisAlignment.start,
-    children: [
-      pw.ClipRRect(
-        horizontalRadius: 5,
-        verticalRadius: 5,
-        child: pw.Container(
-          height: 18,
-          child: pw.Row(
-            children: [
-              for (final s in segments)
-                pw.Expanded(
-                  flex: (s.$2 / total * 10000).round().clamp(1, 1000000),
-                  child: pw.Container(color: s.$3),
-                ),
-            ],
-          ),
-        ),
-      ),
-      pw.SizedBox(height: 8),
-      pw.Wrap(
-        spacing: 14,
-        runSpacing: 5,
-        children: [
-          for (final s in segments)
-            pw.Row(
-              mainAxisSize: pw.MainAxisSize.min,
-              children: [
-                pw.Container(width: 9, height: 9, color: s.$3),
-                pw.SizedBox(width: 4),
-                pw.Text(
-                  '${s.$1}  ${(s.$2 / total * 100).round()}%',
-                  style: const pw.TextStyle(fontSize: 8.5, color: _ink),
-                ),
-              ],
-            ),
-        ],
-      ),
-    ],
-  );
-}
 
 // A horizontal bar chart of amount per category (top ten), each bar sized
 // relative to the biggest category.
@@ -351,44 +268,7 @@ pw.Widget _categoryBars(List<_CatAgg> cats, double total) {
                   ),
                 ),
                 pw.SizedBox(width: 8),
-                pw.Expanded(
-                  child: pw.Stack(
-                    alignment: pw.Alignment.centerLeft,
-                    children: [
-                      pw.Container(
-                        height: 11,
-                        decoration: const pw.BoxDecoration(
-                          color: _trackGrey,
-                          borderRadius: pw.BorderRadius.all(
-                            pw.Radius.circular(3),
-                          ),
-                        ),
-                      ),
-                      pw.ClipRRect(
-                        horizontalRadius: 3,
-                        verticalRadius: 3,
-                        child: pw.Row(
-                          children: [
-                            pw.Expanded(
-                              flex: (c.total / maxVal * 1000)
-                                  .round()
-                                  .clamp(1, 1000),
-                              child: pw.Container(
-                                height: 11,
-                                color: _colorFor(c.name),
-                              ),
-                            ),
-                            pw.Expanded(
-                              flex: (1000 - (c.total / maxVal * 1000).round())
-                                  .clamp(0, 1000),
-                              child: pw.SizedBox(),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                pw.Expanded(child: _bar(c.total, maxVal, _colorFor(c.name))),
                 pw.SizedBox(width: 8),
                 pw.SizedBox(
                   width: 70,
@@ -405,6 +285,36 @@ pw.Widget _categoryBars(List<_CatAgg> cats, double total) {
               ],
             ),
           ),
+      ],
+    ),
+  );
+}
+
+// A grey track with a coloured fill proportional to [value]/[max]. Built from
+// nested rounded Containers (no ClipRRect — the PDF engine renders rounded
+// clips as pointed lens shapes).
+pw.Widget _bar(double value, double max, PdfColor color) {
+  final filled = max <= 0 ? 0 : (value / max * 1000).round().clamp(0, 1000);
+  final rest = 1000 - filled;
+  return pw.Container(
+    height: 11,
+    decoration: const pw.BoxDecoration(
+      color: _trackGrey,
+      borderRadius: pw.BorderRadius.all(pw.Radius.circular(3)),
+    ),
+    child: pw.Row(
+      children: [
+        if (filled > 0)
+          pw.Expanded(
+            flex: filled,
+            child: pw.Container(
+              decoration: pw.BoxDecoration(
+                color: color,
+                borderRadius: const pw.BorderRadius.all(pw.Radius.circular(3)),
+              ),
+            ),
+          ),
+        if (rest > 0) pw.Expanded(flex: rest, child: pw.SizedBox()),
       ],
     ),
   );
