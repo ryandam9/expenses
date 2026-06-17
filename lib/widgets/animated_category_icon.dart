@@ -32,32 +32,36 @@ class _AnimatedCategoryIconState extends State<AnimatedCategoryIcon>
   // first build; the flip only plays when selection flips on.
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 640),
+    duration: const Duration(milliseconds: 3000),
     value: 1,
   );
 
-  // One full turn about the Y axis — ends back at the front (2π ≡ 0).
+  // Several full turns about the Y axis, ending back at the front (an integer ×
+  // 2π ≡ 0). easeOutSine holds a steadier spin speed through the middle and
+  // eases off only near the end, instead of braking hard early.
   late final Animation<double> _flip = Tween<double>(
     begin: 0,
-    end: 2 * math.pi,
-  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    end: 5 * 2 * math.pi,
+  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutSine));
 
-  // Spring up, then bounce back to rest — gives the flip a tactile landing.
+  // A quick spring-up-and-settle compressed into the first ~0.6s, then hold at
+  // rest size while the icon keeps spinning, so the pop stays snappy.
   late final Animation<double> _scale = TweenSequence<double>([
     TweenSequenceItem(
       tween: Tween<double>(
         begin: 1,
         end: 1.3,
       ).chain(CurveTween(curve: Curves.easeOut)),
-      weight: 35,
+      weight: 8,
     ),
     TweenSequenceItem(
       tween: Tween<double>(
         begin: 1.3,
         end: 1,
       ).chain(CurveTween(curve: Curves.elasticOut)),
-      weight: 65,
+      weight: 13,
     ),
+    TweenSequenceItem(tween: ConstantTween<double>(1), weight: 79),
   ]).animate(_controller);
 
   @override
