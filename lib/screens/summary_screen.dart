@@ -160,7 +160,7 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
           subtitle: stats.isEmpty
               ? 'No spending in this month'
               : '${stats.length} categories · '
-                    '${currency0.format(expenses)} total',
+                    '${currency2.format(expenses)} total',
         ),
         const SizedBox(height: 12),
         if (stats.isEmpty)
@@ -308,7 +308,7 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
         _statPill(
           theme,
           'INCOMING',
-          currency0.format(income),
+          currency2.format(income),
           Icons.north_east_rounded,
           green,
         ),
@@ -316,7 +316,7 @@ class _SummaryScreenState extends ConsumerState<SummaryScreen> {
         _statPill(
           theme,
           'NET',
-          currency0.format(net),
+          currency2.format(net),
           Icons.swap_vert_rounded,
           net >= 0 ? green : cs.error,
         ),

@@ -3,7 +3,6 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/expense.dart';
 import '../providers/category_explorer_provider.dart';
@@ -14,6 +13,7 @@ import '../theme/brutalism.dart';
 import '../theme/typography.dart';
 import '../utils/category_icons.dart';
 import '../utils/format.dart';
+import '../widgets/animated_category_icon.dart';
 import '../widgets/category_pill.dart';
 import '../widgets/overview_charts.dart';
 import '../widgets/transactions_bar_chart.dart';
@@ -258,10 +258,12 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                 const SizedBox(width: 12),
                 SizedBox(
                   width: 20,
-                  child: FaIcon(
-                    categoryIcon(s.category),
+                  child: AnimatedCategoryIcon(
+                    key: ValueKey(s.category),
+                    icon: categoryIcon(s.category),
                     size: 15,
                     color: accent,
+                    selected: selected,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -275,7 +277,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                       fontWeight: selected
                           ? FontWeight.w700
                           : FontWeight.w600,
-                      color: selected ? cs.primary : cs.onSurface,
+                      color: selected
+                          ? cs.primary
+                          : cs.onSurface.withValues(alpha: 0.8),
                     ),
                   ),
                 ),
@@ -531,7 +535,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                     theme,
                     w,
                     'Total spent',
-                    currency0.format(total),
+                    currency2.format(total),
                     Icons.south_west,
                     cs.error,
                   ),
@@ -547,7 +551,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                     theme,
                     w,
                     'Avg / month',
-                    currency0.format(avgPerMonth),
+                    currency2.format(avgPerMonth),
                     Icons.calendar_view_month,
                     cs.tertiary,
                   ),
@@ -555,7 +559,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                     theme,
                     w,
                     'Largest',
-                    currency0.format(largest),
+                    currency2.format(largest),
                     Icons.trending_up,
                     cs.error,
                   ),
@@ -909,7 +913,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             : tableTextStyle(
                 fontSize: 14.5,
                 fontWeight: weight ?? FontWeight.w600,
-                color: color ?? cs.onSurface,
+                color: color ?? cs.onSurface.withValues(alpha: 0.8),
               ),
       );
       return width == null

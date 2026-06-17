@@ -17,8 +17,5 @@ String prettyCategory(String category) {
       .join(' ');
 }
 
-/// Whole-dollar currency, for KPI tiles.
-final NumberFormat currency0 = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
-
 /// Cent-precise currency, for individual transactions.
 final NumberFormat currency2 = NumberFormat.currency(symbol: '\$', decimalDigits: 2);

@@ -461,7 +461,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         theme,
         w,
         'Expenses',
-        currency0.format(totalDebits),
+        currency2.format(totalDebits),
         Icons.south_west,
         theme.colorScheme.error,
         delta: debitDelta,
@@ -478,7 +478,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
         theme,
         w,
         'Largest',
-        currency0.format(largest),
+        currency2.format(largest),
         Icons.trending_up,
         theme.colorScheme.error,
       ),
@@ -987,7 +987,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                             : tableTextStyle(
                                 fontSize: 14.5,
                                 height: isDescription ? 1.35 : null,
-                                color: theme.colorScheme.onSurface,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.8,
+                                ),
                               ),
                       ),
               ),

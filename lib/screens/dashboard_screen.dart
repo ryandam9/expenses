@@ -179,14 +179,14 @@ class DashboardScreen extends ConsumerWidget {
       items: [
         InsightItem(
           label: 'Spend pulse',
-          value: currency0.format(expenses),
+          value: currency2.format(expenses),
           detail: monthLabel,
           icon: Icons.query_stats_rounded,
           color: cs.error,
         ),
         InsightItem(
           label: 'Income',
-          value: currency0.format(income),
+          value: currency2.format(income),
           detail: income == 0
               ? 'No credits in this period'
               : 'Credits received',
@@ -195,7 +195,7 @@ class DashboardScreen extends ConsumerWidget {
         ),
         InsightItem(
           label: 'Net position',
-          value: currency0.format(net),
+          value: currency2.format(net),
           detail: net >= 0 ? 'Positive month' : 'Spending above income',
           icon: Icons.account_balance_rounded,
           color: net >= 0 ? green : cs.error,
@@ -204,14 +204,14 @@ class DashboardScreen extends ConsumerWidget {
           InsightItem(
             label: 'Top category',
             value: prettyCategory(topCategory.key),
-            detail: currency0.format(topCategory.value),
+            detail: currency2.format(topCategory.value),
             icon: Icons.category_rounded,
             color: categoryAccent(context, ref, topCategory.key),
           ),
         if (largestDebit > 0)
           InsightItem(
             label: 'Largest expense',
-            value: currency0.format(largestDebit),
+            value: currency2.format(largestDebit),
             detail: largestDescription,
             icon: Icons.priority_high_rounded,
             color: cs.tertiary,
@@ -282,7 +282,7 @@ class DashboardScreen extends ConsumerWidget {
             theme,
             w,
             'EXPENSES',
-            currency0.format(expenses),
+            currency2.format(expenses),
             Icons.south_west_rounded,
             cs.error,
           ),
@@ -290,7 +290,7 @@ class DashboardScreen extends ConsumerWidget {
             theme,
             w,
             'INCOME',
-            currency0.format(income),
+            currency2.format(income),
             Icons.north_east_rounded,
             green,
           ),
@@ -298,7 +298,7 @@ class DashboardScreen extends ConsumerWidget {
             theme,
             w,
             'NET',
-            currency0.format(net),
+            currency2.format(net),
             Icons.swap_vert_rounded,
             net >= 0 ? green : cs.error,
           ),
@@ -459,7 +459,7 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      currency0.format(e.value),
+                      currency2.format(e.value),
                       style: dashboardNumberStyle(theme.textTheme.bodyMedium),
                     ),
                     const SizedBox(width: 8),
