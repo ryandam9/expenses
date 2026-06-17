@@ -146,25 +146,32 @@ pw.Widget _titleBlock(String period, double total, int txns, int catCount) {
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
+            pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
               children: [
-                pw.Text(
-                  'EXPENSES REPORT',
-                  style: pw.TextStyle(
-                    color: PdfColors.white,
-                    fontSize: 22,
-                    fontWeight: pw.FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                pw.SizedBox(height: 3),
-                pw.Text(
-                  'Period: $period',
-                  style: const pw.TextStyle(
-                    color: PdfColor.fromInt(0xFFE4E4FF),
-                    fontSize: 10,
-                  ),
+                _moneyBadge(),
+                pw.SizedBox(width: 12),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'EXPENSES REPORT',
+                      style: pw.TextStyle(
+                        color: PdfColors.white,
+                        fontSize: 22,
+                        fontWeight: pw.FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    pw.SizedBox(height: 3),
+                    pw.Text(
+                      'Period: $period',
+                      style: const pw.TextStyle(
+                        color: PdfColor.fromInt(0xFFE4E4FF),
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -204,6 +211,26 @@ pw.Widget _titleBlock(String period, double total, int txns, int catCount) {
     ),
   );
 }
+
+// A "money" icon: a white rounded badge with a brand-coloured dollar mark.
+// Drawn from primitives so the report needs no embedded icon font.
+pw.Widget _moneyBadge() => pw.Container(
+  width: 36,
+  height: 36,
+  decoration: const pw.BoxDecoration(
+    color: PdfColors.white,
+    borderRadius: pw.BorderRadius.all(pw.Radius.circular(9)),
+  ),
+  alignment: pw.Alignment.center,
+  child: pw.Text(
+    '\$',
+    style: pw.TextStyle(
+      color: _brand,
+      fontSize: 24,
+      fontWeight: pw.FontWeight.bold,
+    ),
+  ),
+);
 
 pw.Widget _metaChip(String text) => pw.Container(
   padding: const pw.EdgeInsets.symmetric(horizontal: 9, vertical: 4),
