@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../services/database_service.dart';
+import '../services/pdf_export.dart';
 import '../services/query_builder.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/filter_provider.dart';
@@ -232,6 +233,16 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                         : null,
                     child: const Text('Export category summary (CSV)'),
                   ),
+                  MenuItemButton(
+                    leadingIcon: const Icon(
+                      Icons.picture_as_pdf_outlined,
+                      size: 18,
+                    ),
+                    onPressed: async.hasValue
+                        ? () => _exportPdf(async.requireValue.transactions)
+                        : null,
+                    child: const Text('Export to PDF'),
+                  ),
                 ],
                 builder: (context, controller, _) => IconButton.filledTonal(
                   icon: const Icon(Icons.download_rounded, size: 20),
@@ -378,6 +389,51 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+    }
+  }
+
+  // Renders the current selection (the active filter + search) to a styled PDF
+  // report picked via the platform's save dialog.
+  Future<void> _exportPdf(List<Expense> all) async {
+    try {
+      final rows = _filtered(all);
+      if (rows.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nothing to export.')),
+        );
+        return;
+      }
+      final filter = ref.read(filterProvider);
+      final period = filter.hasPeriod
+          ? '${_fmtDate(filter.startDate ?? '')} – ${_fmtDate(filter.endDate ?? '')}'
+          : 'All time';
+      final bytes = await buildExpensesPdf(rows: rows, periodLabel: period);
+      final location = await getSaveLocation(
+        suggestedName: expensesPdfFileName(rows),
+        acceptedTypeGroups: const [
+          XTypeGroup(label: 'PDF', extensions: ['pdf']),
+        ],
+      );
+      if (location == null) return; // cancelled
+      final file = File(location.path);
+      await file.writeAsBytes(bytes);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Exported to ${file.path}'),
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'Copy path',
+            onPressed: () => Clipboard.setData(ClipboardData(text: file.path)),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('PDF export failed: $e')));
     }
   }
 
@@ -931,7 +987,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                             : TextStyle(
                                 fontSize: 14.5,
                                 height: isDescription ? 1.35 : null,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                                 color: theme.colorScheme.onSurface,
                               ),
                       ),

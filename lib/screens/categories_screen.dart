@@ -1,10 +1,14 @@
+import 'dart:io';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import '../models/expense.dart';
 import '../providers/category_explorer_provider.dart';
 import '../services/database_service.dart';
+import '../services/pdf_export.dart';
 import '../theme/app_ui.dart';
 import '../theme/brutalism.dart';
 import '../theme/typography.dart';
@@ -437,6 +441,49 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
     return d == null ? iso : DateFormat('d MMM yyyy').format(d);
   }
 
+  // Renders the selected categories' transactions to a styled PDF report
+  // picked via the platform's save dialog.
+  Future<void> _exportPdf(List<Expense> rows) async {
+    try {
+      if (rows.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nothing to export.')),
+        );
+        return;
+      }
+      final state = ref.read(categoryExplorerProvider);
+      final period = state.hasPeriod
+          ? '${_fmtDate(state.startDate!)} – ${_fmtDate(state.endDate!)}'
+          : 'All time';
+      final bytes = await buildExpensesPdf(rows: rows, periodLabel: period);
+      final location = await getSaveLocation(
+        suggestedName: expensesPdfFileName(rows),
+        acceptedTypeGroups: const [
+          XTypeGroup(label: 'PDF', extensions: ['pdf']),
+        ],
+      );
+      if (location == null) return; // cancelled
+      final file = File(location.path);
+      await file.writeAsBytes(bytes);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Exported to ${file.path}'),
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: 'Copy path',
+            onPressed: () => Clipboard.setData(ClipboardData(text: file.path)),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('PDF export failed: $e')));
+    }
+  }
+
   // ----------------------------------------------------------------- loaded
   Widget _buildLoaded(ThemeData theme, List<Expense> rows) {
     final cs = theme.colorScheme;
@@ -545,6 +592,14 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                 ),
               ),
               const Spacer(),
+              OutlinedButton.icon(
+                onPressed: () => _exportPdf(rows),
+                icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                label: const Text('Export PDF'),
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
             ],
           ),
         ),
@@ -853,7 +908,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
               )
             : TextStyle(
                 fontSize: 14.5,
-                fontWeight: weight ?? FontWeight.w500,
+                fontWeight: weight ?? FontWeight.w600,
                 color: color ?? cs.onSurface,
               ),
       );

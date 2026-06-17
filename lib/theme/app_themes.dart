@@ -45,7 +45,7 @@ class AppTheme {
     // let ColorScheme.fromSeed derive light primary/secondary/tertiary tones,
     // so accent-coloured text and icons stay legible on dark surfaces.
     final isLight = brightness == Brightness.light;
-    final scheme = ColorScheme.fromSeed(
+    final base = ColorScheme.fromSeed(
       seedColor: isLight ? primary : chartColors.first,
       primary: isLight ? primary : null,
       secondary: isLight ? secondary : null,
@@ -53,6 +53,24 @@ class AppTheme {
       brightness: brightness,
       dynamicSchemeVariant: variant,
     );
+
+    // Material's default dark surfaces sit very close to pure black, which
+    // reads as heavy and flat. Lift the whole neutral ramp to a set of layered
+    // dark greys (with a faint cool tint) so the canvas feels deep but not
+    // black and cards/chrome read as gently elevated — closer to a polished
+    // desktop dark mode. The accent roles are left untouched.
+    final scheme = isLight
+        ? base
+        : base.copyWith(
+            surface: const Color(0xFF17181C),
+            surfaceDim: const Color(0xFF141519),
+            surfaceBright: const Color(0xFF2D2F35),
+            surfaceContainerLowest: const Color(0xFF1D1F23),
+            surfaceContainerLow: const Color(0xFF202227),
+            surfaceContainer: const Color(0xFF24262B),
+            surfaceContainerHigh: const Color(0xFF2A2C32),
+            surfaceContainerHighest: const Color(0xFF313338),
+          );
 
     return ThemeData(
       useMaterial3: true,
