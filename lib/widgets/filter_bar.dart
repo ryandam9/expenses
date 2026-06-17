@@ -7,6 +7,7 @@ import '../providers/prefs_provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../providers/theme_provider.dart';
 import '../theme/app_themes.dart';
+import '../theme/typography.dart';
 import '../utils/category_icons.dart';
 import '../utils/format.dart';
 
@@ -605,11 +606,11 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                 Expanded(
                   child: Text(
                     label,
-                    style: TextStyle(
+                    style: tableTextStyle(
                       fontSize: 14.5,
                       fontWeight: (selected || bold)
                           ? FontWeight.w700
-                          : FontWeight.w500,
+                          : FontWeight.w600,
                       color: selected ? cs.primary : cs.onSurface,
                     ),
                     overflow: TextOverflow.ellipsis,
