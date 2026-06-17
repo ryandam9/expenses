@@ -34,7 +34,7 @@ class DashboardScreen extends ConsumerWidget {
         children: [
           const AppPageHeader(
             icon: Icons.dashboard_rounded,
-            title: 'Summary',
+            title: 'Dashboard',
             subtitle:
                 'Your latest month at a glance, straight from your database.',
           ),
@@ -524,7 +524,7 @@ class DashboardScreen extends ConsumerWidget {
           for (var i = 0; i < recent.length; i++)
             _txRow(theme, recent[i], last: i == recent.length - 1),
           InkWell(
-            onTap: () => ref.read(navIndexProvider.notifier).select(1),
+            onTap: () => ref.read(navIndexProvider.notifier).select(2),
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -654,7 +654,7 @@ class DashboardScreen extends ConsumerWidget {
                 const SizedBox(height: 20),
                 FilledButton(
                   onPressed: () =>
-                      ref.read(navIndexProvider.notifier).select(3),
+                      ref.read(navIndexProvider.notifier).select(4),
                   child: Text(actionLabel),
                 ),
               ],

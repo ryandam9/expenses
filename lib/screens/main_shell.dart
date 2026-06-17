@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'categories_screen.dart';
 import 'dashboard_screen.dart';
+import 'summary_screen.dart';
 import 'transactions_screen.dart';
 import 'settings_screen.dart';
 import '../providers/nav_provider.dart';
@@ -39,6 +40,7 @@ class MainShell extends ConsumerWidget {
                       sizing: StackFit.expand,
                       children: const [
                         DashboardScreen(),
+                        SummaryScreen(),
                         TransactionsScreen(),
                         CategoriesScreen(),
                         SettingsScreen(),
@@ -171,28 +173,36 @@ class _Sidebar extends ConsumerWidget {
                 onTap: () => ref.read(navIndexProvider.notifier).select(0),
               ),
               _NavItem(
-                icon: Icons.receipt_long_outlined,
-                selectedIcon: Icons.receipt_long_rounded,
-                label: 'Transactions',
+                icon: Icons.summarize_outlined,
+                selectedIcon: Icons.summarize_rounded,
+                label: 'Summary',
                 selected: selectedIndex == 1,
                 collapsed: collapsed,
                 onTap: () => ref.read(navIndexProvider.notifier).select(1),
               ),
               _NavItem(
-                icon: Icons.category_outlined,
-                selectedIcon: Icons.category_rounded,
-                label: 'Categories',
+                icon: Icons.receipt_long_outlined,
+                selectedIcon: Icons.receipt_long_rounded,
+                label: 'Transactions',
                 selected: selectedIndex == 2,
                 collapsed: collapsed,
                 onTap: () => ref.read(navIndexProvider.notifier).select(2),
               ),
               _NavItem(
-                icon: Icons.settings_outlined,
-                selectedIcon: Icons.settings_rounded,
-                label: 'Settings',
+                icon: Icons.category_outlined,
+                selectedIcon: Icons.category_rounded,
+                label: 'Categories',
                 selected: selectedIndex == 3,
                 collapsed: collapsed,
                 onTap: () => ref.read(navIndexProvider.notifier).select(3),
+              ),
+              _NavItem(
+                icon: Icons.settings_outlined,
+                selectedIcon: Icons.settings_rounded,
+                label: 'Settings',
+                selected: selectedIndex == 4,
+                collapsed: collapsed,
+                onTap: () => ref.read(navIndexProvider.notifier).select(4),
               ),
               const Spacer(),
               // ------------------------------------------------------ footer
