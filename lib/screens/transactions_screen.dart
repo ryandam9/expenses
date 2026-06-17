@@ -406,7 +406,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       }
       final filter = ref.read(filterProvider);
       final period = filter.hasPeriod
-          ? '${_fmtDate(filter.startDate ?? '')} – ${_fmtDate(filter.endDate ?? '')}'
+          ? '${_fmtDate(filter.startDate ?? '')} - ${_fmtDate(filter.endDate ?? '')}'
           : 'All time';
       final bytes = await buildExpensesPdf(rows: rows, periodLabel: period);
       final location = await getSaveLocation(

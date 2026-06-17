@@ -453,7 +453,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
       }
       final state = ref.read(categoryExplorerProvider);
       final period = state.hasPeriod
-          ? '${_fmtDate(state.startDate!)} – ${_fmtDate(state.endDate!)}'
+          ? '${_fmtDate(state.startDate!)} - ${_fmtDate(state.endDate!)}'
           : 'All time';
       final bytes = await buildExpensesPdf(rows: rows, periodLabel: period);
       final location = await getSaveLocation(
