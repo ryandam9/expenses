@@ -984,10 +984,9 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
                                     ? theme.colorScheme.error
                                     : Colors.green.shade700,
                               )
-                            : TextStyle(
+                            : tableTextStyle(
                                 fontSize: 14.5,
                                 height: isDescription ? 1.35 : null,
-                                fontWeight: FontWeight.w600,
                                 color: theme.colorScheme.onSurface,
                               ),
                       ),
