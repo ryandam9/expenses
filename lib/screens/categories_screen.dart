@@ -277,7 +277,9 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                       fontWeight: selected
                           ? FontWeight.w700
                           : FontWeight.w600,
-                      color: selected ? cs.primary : cs.onSurface,
+                      color: selected
+                          ? cs.primary
+                          : cs.onSurface.withValues(alpha: 0.8),
                     ),
                   ),
                 ),
@@ -911,7 +913,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
             : tableTextStyle(
                 fontSize: 14.5,
                 fontWeight: weight ?? FontWeight.w600,
-                color: color ?? cs.onSurface,
+                color: color ?? cs.onSurface.withValues(alpha: 0.8),
               ),
       );
       return width == null

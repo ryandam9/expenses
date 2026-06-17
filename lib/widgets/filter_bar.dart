@@ -619,7 +619,9 @@ class _FilterPanelState extends ConsumerState<FilterPanel> {
                       fontWeight: (selected || bold)
                           ? FontWeight.w700
                           : FontWeight.w600,
-                      color: selected ? cs.primary : cs.onSurface,
+                      color: selected
+                          ? cs.primary
+                          : cs.onSurface.withValues(alpha: 0.8),
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
