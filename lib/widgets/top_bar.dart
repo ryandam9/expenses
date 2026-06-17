@@ -14,9 +14,16 @@ class TopBar extends ConsumerWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final selectedIndex = ref.watch(navIndexProvider);
-    const labels = ['Dashboard', 'Transactions', 'Categories', 'Settings'];
+    const labels = [
+      'Dashboard',
+      'Summary',
+      'Transactions',
+      'Categories',
+      'Settings',
+    ];
     const subtitles = [
       'Portfolio overview',
+      'Monthly category breakdown',
       'Ledger analysis',
       'Category explorer',
       'Workspace controls',
@@ -69,7 +76,7 @@ class TopBar extends ConsumerWidget {
             cs,
             Icons.settings_outlined,
             'Settings',
-            () => ref.read(navIndexProvider.notifier).select(3),
+            () => ref.read(navIndexProvider.notifier).select(4),
           ),
           const SizedBox(width: 12),
           Container(
@@ -126,22 +133,28 @@ class _CommandPalette extends ConsumerWidget {
           index: 0,
         ),
         (
+          title: 'Summary',
+          subtitle: 'Monthly spending grouped by category',
+          icon: Icons.summarize_rounded,
+          index: 1,
+        ),
+        (
           title: 'Transactions',
           subtitle: 'Search, filter, inspect, and export rows',
           icon: Icons.receipt_long_rounded,
-          index: 1,
+          index: 2,
         ),
         (
           title: 'Categories',
           subtitle: 'Explore spending by selected categories',
           icon: Icons.category_rounded,
-          index: 2,
+          index: 3,
         ),
         (
           title: 'Settings',
           subtitle: 'Change database, theme, and preferences',
           icon: Icons.tune_rounded,
-          index: 3,
+          index: 4,
         ),
       ];
 
