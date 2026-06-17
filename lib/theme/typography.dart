@@ -10,6 +10,24 @@ import 'package:google_fonts/google_fonts.dart';
 /// per-style sizes/weights. Used for the global light/dark text themes.
 TextTheme appTextTheme(TextTheme base) => GoogleFonts.spaceGroteskTextTheme(base);
 
+/// Condensed face (Roboto Condensed) for dense table text — category names and
+/// the S.No / Date / Description / Bank cells. It packs long descriptions into
+/// tighter columns while staying highly legible; amounts keep JetBrains Mono so
+/// figures stay monospaced and aligned. Bundled as an asset (see pubspec) since
+/// google_fonts no longer ships a standalone Roboto Condensed family.
+TextStyle tableTextStyle({
+  double fontSize = 14.5,
+  FontWeight fontWeight = FontWeight.w600,
+  Color? color,
+  double? height,
+}) => TextStyle(
+  fontFamily: 'RobotoCondensed',
+  fontSize: fontSize,
+  fontWeight: fontWeight,
+  color: color,
+  height: height,
+);
+
 /// Display style for prominent figures (KPI tiles, dialog headlines). Built on
 /// [base] so it keeps the surrounding size, then switched to JetBrains Mono with
 /// tabular figures so digits stay monospaced and aligned.

@@ -270,11 +270,11 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                     '${prettyCategory(s.category)} (${s.count})',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: tableTextStyle(
                       fontSize: 14.5,
                       fontWeight: selected
                           ? FontWeight.w700
-                          : FontWeight.w500,
+                          : FontWeight.w600,
                       color: selected ? cs.primary : cs.onSurface,
                     ),
                   ),
@@ -906,7 +906,7 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> {
                 color: color,
                 fontWeight: weight ?? FontWeight.w800,
               )
-            : TextStyle(
+            : tableTextStyle(
                 fontSize: 14.5,
                 fontWeight: weight ?? FontWeight.w600,
                 color: color ?? cs.onSurface,
