@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../theme/app_themes.dart';
 import '../services/database_service.dart';
-import '../providers/dashboard_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/prefs_provider.dart';
 import '../theme/app_ui.dart';
@@ -514,9 +512,6 @@ class _AboutBlock extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    // Live count from the configured database ('—' until one is configured).
-    final countAsync = ref.watch(transactionCountProvider);
-    final count = countAsync.hasValue ? countAsync.requireValue : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -577,12 +572,6 @@ class _AboutBlock extends ConsumerWidget {
           spacing: 10,
           runSpacing: 10,
           children: [
-            _factTile(
-              theme,
-              Icons.receipt_long_rounded,
-              'Transactions',
-              count == null ? '—' : NumberFormat.decimalPattern().format(count),
-            ),
             _factTile(theme, Icons.storage_rounded, 'Data source', 'SQLite'),
             _factTile(theme, Icons.flutter_dash, 'Built with', 'Flutter'),
           ],
