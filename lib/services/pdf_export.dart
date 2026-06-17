@@ -273,7 +273,7 @@ pw.Widget _categoryBars(List<_CatAgg> cats, double total) {
                 pw.SizedBox(
                   width: 70,
                   child: pw.Text(
-                    currency0.format(c.total),
+                    currency2.format(c.total),
                     textAlign: pw.TextAlign.right,
                     style: pw.TextStyle(
                       fontSize: 9,
